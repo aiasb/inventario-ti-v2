@@ -1,0 +1,121 @@
+import React from 'react';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
+import { Feather } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { colors } from '../theme/colors';
+import { fonts } from '../theme/typography';
+import { radius } from '../theme/spacing';
+import { useSheet } from '../context/SheetContext';
+import { useAuth } from '../context/AuthContext';
+
+const TAB_ICON: Record<string, keyof typeof Feather.glyphMap> = {
+  Inicio: 'home',
+  Itens: 'grid',
+  Relatorios: 'bar-chart-2',
+  Config: 'settings',
+};
+
+const TAB_LABEL: Record<string, string> = {
+  Inicio: 'Início',
+  Itens: 'Itens',
+  Relatorios: 'Relatórios',
+  Config: 'Config',
+};
+
+export function CustomTabBar({ state, navigation }: BottomTabBarProps) {
+  const insets = useSafeAreaInsets();
+  const { openNovoEquipamento } = useSheet();
+  const { podeCriar } = useAuth();
+
+  const leftRoutes = state.routes.slice(0, 2);
+  const rightRoutes = state.routes.slice(2, 4);
+
+  const renderTab = (route: (typeof state.routes)[number]) => {
+    const index = state.routes.findIndex((r) => r.key === route.key);
+    const isFocused = state.index === index;
+
+    const onPress = () => {
+      const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
+      if (!isFocused && !event.defaultPrevented) {
+        navigation.navigate(route.name);
+      }
+    };
+
+    return (
+      <Pressable key={route.key} onPress={onPress} style={styles.tabButton}>
+        <Feather
+          name={TAB_ICON[route.name]}
+          size={20}
+          color={isFocused ? colors.accent : colors.textMuted}
+        />
+        <Text style={[styles.tabLabel, isFocused && styles.tabLabelActive]}>{TAB_LABEL[route.name]}</Text>
+      </Pressable>
+    );
+  };
+
+  return (
+    <View style={[styles.container, { paddingBottom: Math.max(insets.bottom, 10) }]}>
+      <View style={styles.row}>
+        {leftRoutes.map(renderTab)}
+        <View style={styles.fabSpacer} />
+        {rightRoutes.map(renderTab)}
+      </View>
+
+      {podeCriar('inventario') && (
+        <Pressable style={styles.fab} onPress={openNovoEquipamento}>
+          <Feather name="plus" size={26} color="#06210b" />
+        </Pressable>
+      )}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    backgroundColor: colors.surfaceTo,
+    borderTopWidth: 1,
+    borderTopColor: colors.borderSoft,
+    paddingTop: 8,
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  tabButton: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 3,
+    minHeight: 44,
+  },
+  tabLabel: {
+    fontFamily: fonts.bodyMedium,
+    fontSize: 10.5,
+    color: colors.textMuted,
+  },
+  tabLabelActive: {
+    color: colors.accent,
+  },
+  fabSpacer: {
+    width: 64,
+  },
+  fab: {
+    position: 'absolute',
+    alignSelf: 'center',
+    top: -26,
+    width: 58,
+    height: 58,
+    borderRadius: radius.pill,
+    backgroundColor: colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 4,
+    borderColor: colors.bg,
+    shadowColor: colors.accent,
+    shadowOpacity: Platform.OS === 'ios' ? 0.5 : 0.9,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 10,
+  },
+});

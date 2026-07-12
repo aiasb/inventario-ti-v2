@@ -1,0 +1,36 @@
+{
+  "expo": {
+    "name": "Inventário TI · Usina Caçu",
+    "slug": "inventario-ti-usina-cacu",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#0a0d10",
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "br.com.usinacacu.inventarioti",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "backgroundColor": "#0a0d10",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-font",
+      "expo-status-bar",
+      "expo-secure-store"
+    ],
+    "extra": {
+      "apiUrl": "http://172.16.36.253:8080/api/v1"
+    }
+  }
+}

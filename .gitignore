@@ -1,0 +1,35 @@
+# dependencies
+node_modules/
+
+# env / secrets
+.env
+.env.*.local
+!.env.example
+
+# build output
+dist/
+build/
+web-build/
+
+# runtime-generated content (uploads de fotos, modelos .docx, documentos gerados)
+api/src/uploads/
+api/src/private-files/
+
+# mobile: projeto nativo é regenerado via `expo prebuild`, não precisa ir pro repo
+mobile/android/
+mobile/ios/
+mobile/.expo/
+mobile/*.apk
+
+# logs
+*.log
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# editor / OS
+.DS_Store
+Thumbs.db
+
+# ferramentas locais (Claude Code)
+.claude/
