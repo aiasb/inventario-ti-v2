@@ -16,6 +16,7 @@ import { RootStackParamList } from '../navigation/types';
 import { NovaOsSheet } from '../sheets/NovaOsSheet';
 import { Manutencao, statusManutencaoLabel } from '../types/models';
 import { useAuth } from '../context/AuthContext';
+import { useSheet } from '../context/SheetContext';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 type DetalheRoute = RouteProp<RootStackParamList, 'Detalhe'>;
@@ -25,7 +26,8 @@ export function DetalheScreen() {
   const route = useRoute<DetalheRoute>();
   const insets = useSafeAreaInsets();
   const { getEquipamento, getManutencoesDe } = useAppData();
-  const { podeCriar } = useAuth();
+  const { podeCriar, podeEditar } = useAuth();
+  const { openEditarEquipamento } = useSheet();
   const { showToast } = useToast();
   const [osSheetVisible, setOsSheetVisible] = useState(false);
 
@@ -62,10 +64,15 @@ export function DetalheScreen() {
           <Feather name="chevron-left" size={20} color={colors.text} />
         </Pressable>
         <View style={styles.headerInfo}>
-          <Text style={styles.pat}>{equipamento.patrimonio}</Text>
+          <Text style={styles.pat}>{equipamento.serial}</Text>
           <Text style={styles.modelo} numberOfLines={1}>{equipamento.modelo}</Text>
         </View>
         <StatusBadge status={equipamento.status} />
+        {podeEditar('inventario') && (
+          <Pressable style={styles.editBtn} onPress={() => openEditarEquipamento(equipamento)}>
+            <Feather name="edit-2" size={16} color={colors.text} />
+          </Pressable>
+        )}
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -157,6 +164,16 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 12,
+    backgroundColor: colors.surfaceFrom,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  editBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
     backgroundColor: colors.surfaceFrom,
     borderWidth: 1,
     borderColor: colors.border,

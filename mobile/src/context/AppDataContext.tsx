@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { NovaManutencaoInput, NovoEquipamentoInput, repository } from '../data/repository';
+import { EditarEquipamentoInput, NovaManutencaoInput, NovoEquipamentoInput, repository } from '../data/repository';
 import { Atividade, Equipamento, Manutencao, Responsavel, Setor, TipoEquipamento } from '../types/models';
 import { useAuth } from './AuthContext';
 
@@ -15,8 +15,8 @@ interface AppDataContextValue {
   getEquipamento: (id: number) => Equipamento | undefined;
   getManutencoesDe: (equipamentoId: number) => Manutencao[];
   criarEquipamento: (input: NovoEquipamentoInput) => Promise<Equipamento>;
+  editarEquipamento: (id: number, input: EditarEquipamentoInput) => Promise<Equipamento>;
   abrirOs: (input: NovaManutencaoInput) => Promise<Manutencao>;
-  proximoPatrimonio: string;
 }
 
 const AppDataContext = createContext<AppDataContextValue | null>(null);
@@ -27,7 +27,7 @@ function buildAtividades(equipamentos: Equipamento[], manutencoes: Manutencao[])
   for (const e of equipamentos) {
     items.push({
       id: `equip-${e.id}`,
-      texto: `${e.patrimonio} ${e.modelo} adicionado ao inventário`,
+      texto: `${e.modelo} (${e.serial}) adicionado ao inventário`,
       autor: e.responsavel?.nome || 'Sistema',
       data: e.createdAt,
       cor: 'accent',
@@ -38,8 +38,8 @@ function buildAtividades(equipamentos: Equipamento[], manutencoes: Manutencao[])
       id: `os-${m.id}`,
       texto:
         m.status === 'Concluida'
-          ? `${m.os} concluída — ${m.equipamento.patrimonio}`
-          : `${m.os} aberta para ${m.equipamento.patrimonio} (${m.titulo})`,
+          ? `${m.os} concluída — ${m.equipamento.serial}`
+          : `${m.os} aberta para ${m.equipamento.serial} (${m.titulo})`,
       autor: m.tecnico || 'Sistema',
       data: m.createdAt,
       cor: m.status === 'Concluida' ? 'accent' : 'warning',
@@ -99,6 +99,15 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     [refresh]
   );
 
+  const editarEquipamento = useCallback(
+    async (id: number, input: EditarEquipamentoInput) => {
+      const updated = await repository.updateEquipamento(id, input);
+      await refresh();
+      return updated;
+    },
+    [refresh]
+  );
+
   const abrirOs = useCallback(
     async (input: NovaManutencaoInput) => {
       const created = await repository.createManutencao(input);
@@ -115,7 +124,6 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     [manutencoes]
   );
 
-  const proximoPatrimonio = useMemo(() => repository.peekNextPatrimonio(equipamentos), [equipamentos]);
   const atividades = useMemo(() => buildAtividades(equipamentos, manutencoes), [equipamentos, manutencoes]);
 
   const value = useMemo<AppDataContextValue>(
@@ -131,8 +139,8 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       getEquipamento,
       getManutencoesDe,
       criarEquipamento,
+      editarEquipamento,
       abrirOs,
-      proximoPatrimonio,
     }),
     [
       ready,
@@ -146,8 +154,8 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       getEquipamento,
       getManutencoesDe,
       criarEquipamento,
+      editarEquipamento,
       abrirOs,
-      proximoPatrimonio,
     ]
   );
 

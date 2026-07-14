@@ -12,6 +12,9 @@ export type RootStackParamList = {
   Tabs: undefined;
   Detalhe: { id: number };
   BuscaAvancada: undefined;
+  Cadastros: undefined;
+  Responsaveis: undefined;
+  Acessos: undefined;
 };
 
 declare global {

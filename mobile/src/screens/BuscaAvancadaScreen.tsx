@@ -38,7 +38,7 @@ export function BuscaAvancadaScreen() {
       if (statuses.length > 0 && !statuses.includes(e.status)) return false;
       if (!q) return true;
       return (
-        e.patrimonio.toLowerCase().includes(q) ||
+        e.serial.toLowerCase().includes(q) ||
         e.modelo.toLowerCase().includes(q) ||
         (e.responsavel?.nome || '').toLowerCase().includes(q) ||
         (e.hostname || '').toLowerCase().includes(q)
@@ -61,7 +61,7 @@ export function BuscaAvancadaScreen() {
           <TextInput
             value={query}
             onChangeText={setQuery}
-            placeholder="Buscar por patrimônio, modelo, usuário…"
+            placeholder="Buscar por serial, modelo, usuário…"
             placeholderTextColor={colors.textMuted}
             style={styles.searchInput}
           />

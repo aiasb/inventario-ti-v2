@@ -27,10 +27,22 @@
     "plugins": [
       "expo-font",
       "expo-status-bar",
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
+      ]
     ],
     "extra": {
-      "apiUrl": "http://172.16.36.253:8080/api/v1"
-    }
+      "apiUrl": "http://172.16.36.253:8080/api/v1",
+      "eas": {
+        "projectId": "5b65100b-3372-4609-ab9d-14375f4c0e82"
+      }
+    },
+    "owner": "aiassb"
   }
 }

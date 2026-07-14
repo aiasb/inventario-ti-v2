@@ -22,7 +22,7 @@ export function EquipCard({ item, onPress }: { item: Equipamento; onPress: () =>
           <StatusBadge status={item.status} size="sm" />
         </View>
 
-        <Text style={styles.pat}>{item.patrimonio}</Text>
+        <Text style={styles.pat}>{item.serial}</Text>
         <Text style={styles.modelo} numberOfLines={1}>{item.modelo}</Text>
 
         <View style={styles.metaRow}>

@@ -14,16 +14,22 @@ export interface TipoEquipamento {
   id: number;
   nome: string;
   prefixoHostname: string | null;
+  ativo: boolean;
 }
 
 export interface Setor {
   id: number;
   nome: string;
+  ativo: boolean;
 }
 
 export interface Fornecedor {
   id: number;
   nome: string;
+  cnpj: string | null;
+  telefone: string | null;
+  email: string | null;
+  ativo: boolean;
 }
 
 export interface Responsavel {
@@ -32,11 +38,48 @@ export interface Responsavel {
   matricula: string | null;
   cpf: string | null;
   setorId: number | null;
+  ativo: boolean;
 }
+
+export interface ModulePermission {
+  podeVer: boolean;
+  podeCriar: boolean;
+  podeEditar: boolean;
+  podeExcluir: boolean;
+}
+
+export interface UsuarioAdmin {
+  id: number;
+  nome: string;
+  email: string;
+  cargo: string | null;
+  perfil: string;
+  perfilId: number;
+  ativo: boolean;
+  bloqueado: boolean;
+  ultimoAcesso: string | null;
+}
+
+export interface Perfil {
+  id: number;
+  nome: string;
+  descricao: string | null;
+  permissoes: Record<string, ModulePermission>;
+}
+
+export const MODULOS: { key: string; label: string }[] = [
+  { key: 'dashboard', label: 'Dashboard' },
+  { key: 'inventario', label: 'Inventário' },
+  { key: 'manutencoes', label: 'Manutenções' },
+  { key: 'termos', label: 'Termos' },
+  { key: 'responsaveis', label: 'Responsáveis' },
+  { key: 'acessos', label: 'Acessos' },
+  { key: 'cadastros', label: 'Cadastros' },
+  { key: 'configuracoes', label: 'Configurações' },
+];
 
 export interface Equipamento {
   id: number;
-  patrimonio: string;
   tipo: TipoEquipamento;
   modelo: string;
   serial: string;
@@ -61,7 +104,7 @@ export type StatusManutencao = 'Aberta' | 'Em andamento' | 'Concluida';
 export interface Manutencao {
   id: number;
   os: string;
-  equipamento: { id: number; patrimonio: string; serial: string; modelo: string };
+  equipamento: { id: number; serial: string; modelo: string };
   titulo: string;
   tipo: TipoManutencao;
   tecnico: string | null;

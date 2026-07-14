@@ -10,7 +10,7 @@ const router = Router();
 const BASE_SELECT = `
   SELECT m.id, m.os, m.titulo, m.tipo, m.tecnico, m.custo, m.descricao, m.data, m.status,
          m.created_at, m.updated_at,
-         e.id AS equipamento_id, e.patrimonio, e.serial, e.modelo
+         e.id AS equipamento_id, e.serial, e.modelo
   FROM manutencoes m
   JOIN equipamentos e ON e.id = m.equipamento_id
 `;
@@ -26,7 +26,7 @@ function mapRow(r) {
     descricao: r.descricao,
     data: r.data,
     status: r.status,
-    equipamento: { id: r.equipamento_id, patrimonio: r.patrimonio, serial: r.serial, modelo: r.modelo },
+    equipamento: { id: r.equipamento_id, serial: r.serial, modelo: r.modelo },
     createdAt: r.created_at,
     updatedAt: r.updated_at,
   };
@@ -82,7 +82,7 @@ router.get(
     if (q) {
       params.push(`%${q}%`);
       const idx = params.length;
-      conditions.push(`(m.os ILIKE $${idx} OR m.titulo ILIKE $${idx} OR e.patrimonio ILIKE $${idx} OR e.serial ILIKE $${idx})`);
+      conditions.push(`(m.os ILIKE $${idx} OR m.titulo ILIKE $${idx} OR e.serial ILIKE $${idx})`);
     }
 
     const where = `WHERE ${conditions.join(' AND ')}`;

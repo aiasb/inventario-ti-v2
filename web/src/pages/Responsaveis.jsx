@@ -154,7 +154,9 @@ export function Responsaveis() {
                 <label>Setor</label>
                 <select className="input" value={form.setorId} onChange={(e) => setForm((f) => ({ ...f, setorId: e.target.value }))}>
                   <option value="">—</option>
-                  {setores.map((s) => <option key={s.id} value={s.id}>{s.nome}</option>)}
+                  {setores.filter((s) => s.ativo || String(s.id) === String(form.setorId)).map((s) => (
+                    <option key={s.id} value={s.id}>{s.nome}{!s.ativo ? ' (inativo)' : ''}</option>
+                  ))}
                 </select>
               </div>
             </div>

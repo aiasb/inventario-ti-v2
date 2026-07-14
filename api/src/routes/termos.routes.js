@@ -14,7 +14,7 @@ const SORT_COLUMNS = { numero: 't.numero', colaborador: 't.colaborador', data: '
 
 async function mapTermo(row) {
   const { rows: equipamentos } = await query(
-    `SELECT e.id, e.patrimonio, e.serial, e.modelo, e.hostname, e.imei, te2.nome AS tipo_nome
+    `SELECT e.id, e.serial, e.modelo, e.hostname, e.imei, te2.nome AS tipo_nome
      FROM termo_equipamentos te
      JOIN equipamentos e ON e.id = te.equipamento_id
      LEFT JOIN tipos_equipamento te2 ON te2.id = e.tipo_id
@@ -37,7 +37,7 @@ async function mapTermo(row) {
       ? { id: row.responsavel_id, nome: row.resp_nome, cpf: row.resp_cpf, matricula: row.resp_matricula, setor: row.resp_setor_nome }
       : null,
     equipamentos: equipamentos.map((e) => ({
-      id: e.id, patrimonio: e.patrimonio, serial: e.serial, modelo: e.modelo,
+      id: e.id, serial: e.serial, modelo: e.modelo,
       hostname: e.hostname, imei: e.imei, tipo: e.tipo_nome,
     })),
     createdAt: row.created_at,
@@ -226,12 +226,11 @@ async function loadTermoParaDocumento(id) {
   }
 
   const termo = await mapTermo(row);
-  const patrimonios = termo.equipamentos.map((e) => e.patrimonio).join(' + ');
   const seriais = termo.equipamentos.map((e) => e.serial).join(' + ');
   const modelosEquip = termo.equipamentos.map((e) => e.modelo).join(' + ');
   const imeis = termo.equipamentos.map((e) => e.imei).filter(Boolean).join(' + ');
   const listaEquipamentos = termo.equipamentos
-    .map((e) => `${e.patrimonio} - ${e.modelo} (${e.serial})`)
+    .map((e) => `${e.modelo} (${e.serial})`)
     .join('\n');
 
   const data = {
@@ -245,7 +244,6 @@ async function loadTermoParaDocumento(id) {
     matricula: termo.responsavel?.matricula || '',
     setor: termo.responsavel?.setor || '',
     observacoes: termo.observacoes || '',
-    patrimonio: patrimonios,
     serial: seriais,
     imei: imeis,
     modelo: modelosEquip,

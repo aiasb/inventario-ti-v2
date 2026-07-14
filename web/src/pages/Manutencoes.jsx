@@ -110,7 +110,7 @@ export function Manutencoes() {
                     <div className="os-num">{m.os}</div>
                     <div className="titulo">{m.titulo}</div>
                     <div className="meta">
-                      <span>{m.equipamento.patrimonio}</span>
+                      <span>{m.equipamento.serial}</span>
                       <span>{formatDate(m.data)}</span>
                     </div>
                     <div className="move-actions">
@@ -141,7 +141,7 @@ export function Manutencoes() {
               {manutencoes.map((m) => (
                 <tr key={m.id}>
                   <td className="mono" style={{ color: 'var(--accent)' }}>{m.os}</td>
-                  <td>{m.equipamento.patrimonio} <span className="text-muted mono" style={{ fontSize: 11 }}>{m.equipamento.serial}</span></td>
+                  <td className="mono">{m.equipamento.serial}</td>
                   <td>{m.titulo}</td>
                   <td>{m.tipo}</td>
                   <td>{m.tecnico || '—'}</td>
@@ -161,11 +161,11 @@ export function Manutencoes() {
             <div className="form-grid">
               <div className="field full">
                 <label>Equipamento *</label>
-                <input className="input" placeholder="Buscar por serial, patrimônio ou modelo…" value={equipSearch} onChange={(e) => setEquipSearch(e.target.value)} />
+                <input className="input" placeholder="Buscar por serial ou modelo…" value={equipSearch} onChange={(e) => setEquipSearch(e.target.value)} />
                 <select className="input" required style={{ marginTop: 6 }} value={form.equipamentoId} onChange={(e) => setForm((f) => ({ ...f, equipamentoId: e.target.value }))}>
                   <option value="">Selecione o equipamento</option>
                   {equipamentosOptions.map((e) => (
-                    <option key={e.id} value={e.id}>{e.patrimonio} · {e.modelo} · {e.serial}</option>
+                    <option key={e.id} value={e.id}>{e.modelo} · {e.serial}</option>
                   ))}
                 </select>
               </div>

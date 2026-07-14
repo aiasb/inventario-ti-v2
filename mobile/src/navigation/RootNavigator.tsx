@@ -5,6 +5,9 @@ import { RootStackParamList } from './types';
 import { TabNavigator } from './TabNavigator';
 import { DetalheScreen } from '../screens/DetalheScreen';
 import { BuscaAvancadaScreen } from '../screens/BuscaAvancadaScreen';
+import { CadastrosScreen } from '../screens/CadastrosScreen';
+import { ResponsaveisScreen } from '../screens/ResponsaveisScreen';
+import { AcessosScreen } from '../screens/AcessosScreen';
 import { LoginScreen } from '../screens/LoginScreen';
 import { useAuth } from '../context/AuthContext';
 import { colors } from '../theme/colors';
@@ -34,6 +37,9 @@ export function RootNavigator() {
       <Stack.Group screenOptions={{ animation: 'slide_from_right' }}>
         <Stack.Screen name="Detalhe" component={DetalheScreen} />
         <Stack.Screen name="BuscaAvancada" component={BuscaAvancadaScreen} />
+        <Stack.Screen name="Cadastros" component={CadastrosScreen} />
+        <Stack.Screen name="Responsaveis" component={ResponsaveisScreen} />
+        <Stack.Screen name="Acessos" component={AcessosScreen} />
       </Stack.Group>
     </Stack.Navigator>
   );

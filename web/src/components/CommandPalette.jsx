@@ -112,7 +112,7 @@ function CommandPalette({ onClose }) {
               {equipamentos.map((e) => (
                 <div key={e.id} className="palette-item" onClick={() => go(`/inventario?id=${e.id}`)}>
                   <Icon name="inventory" size={14} />
-                  {e.modelo} — {e.patrimonio}
+                  {e.modelo}
                   <span className="sub">{e.serial}</span>
                 </div>
               ))}

@@ -149,7 +149,7 @@ export function Termos() {
           </div>
           <div style={{ textAlign: 'right', flexShrink: 0 }}>
             <div className="mono" style={{ fontSize: 12, color: 'var(--accent)' }}>
-              {t.equipamentos.map((eq) => eq.patrimonio).join(' + ') || '—'}
+              {t.equipamentos.map((eq) => eq.serial).join(' + ') || '—'}
             </div>
             <div className="text-muted" style={{ fontSize: 11 }}>entregue em {formatDate(t.data)}</div>
           </div>
@@ -189,14 +189,18 @@ export function Termos() {
                 <label>Modelo do termo</label>
                 <select className="input" value={form.modeloId} onChange={(e) => setForm((f) => ({ ...f, modeloId: e.target.value }))}>
                   <option value="">— Padrão —</option>
-                  {modelos.map((m) => <option key={m.id} value={m.id}>{m.nome}</option>)}
+                  {modelos.filter((m) => m.ativo || String(m.id) === String(form.modeloId)).map((m) => (
+                    <option key={m.id} value={m.id}>{m.nome}{!m.ativo ? ' (inativo)' : ''}</option>
+                  ))}
                 </select>
               </div>
               <div className="field">
                 <label>Responsável cadastrado (opcional)</label>
                 <select className="input" value={form.responsavelId} onChange={(e) => setForm((f) => ({ ...f, responsavelId: e.target.value }))}>
                   <option value="">— Nenhum —</option>
-                  {responsaveis.map((r) => <option key={r.id} value={r.id}>{r.nome}</option>)}
+                  {responsaveis.filter((r) => r.ativo || String(r.id) === String(form.responsavelId)).map((r) => (
+                    <option key={r.id} value={r.id}>{r.nome}{!r.ativo ? ' (inativo)' : ''}</option>
+                  ))}
                 </select>
                 <span className="text-muted" style={{ fontSize: 11, marginTop: 4, display: 'block' }}>
                   Preenche %cpf%, %matricula% e %setor% no arquivo .docx.
@@ -217,7 +221,7 @@ export function Termos() {
                   {equipOptions.map((eq) => (
                     <label key={eq.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', fontSize: 12.5, borderBottom: '1px solid var(--border-soft)' }}>
                       <input type="checkbox" className="checkbox" checked={form.equipamentoIds.includes(eq.id)} onChange={() => toggleEquip(eq.id)} />
-                      {eq.patrimonio} · {eq.modelo} · <span className="mono text-muted">{eq.serial}</span>
+                      {eq.modelo} · <span className="mono text-muted">{eq.serial}</span>
                     </label>
                   ))}
                   {equipOptions.length === 0 && <div className="text-muted" style={{ padding: 10, fontSize: 12 }}>Nenhum equipamento encontrado.</div>}
@@ -395,7 +399,7 @@ function TermoDrawer({ id, onClose, onPrint, onChanged }) {
       {termo.equipamentos.map((eq) => (
         <div key={eq.id} style={{ padding: '9px 0', borderBottom: '1px solid var(--border-soft)', fontSize: 13 }}>
           <div>{eq.modelo} <span className="text-muted">({eq.tipo})</span></div>
-          <div className="text-muted mono" style={{ fontSize: 11.5 }}>{eq.patrimonio} · {eq.serial} · {eq.hostname || '—'}</div>
+          <div className="text-muted mono" style={{ fontSize: 11.5 }}>{eq.serial} · {eq.hostname || '—'}</div>
         </div>
       ))}
     </Drawer>
@@ -419,7 +423,6 @@ function PrintView({ termo }) {
       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
         <thead>
           <tr>
-            <th style={{ border: '1px solid #999', padding: 6, textAlign: 'left' }}>Patrimônio</th>
             <th style={{ border: '1px solid #999', padding: 6, textAlign: 'left' }}>Tipo</th>
             <th style={{ border: '1px solid #999', padding: 6, textAlign: 'left' }}>Modelo</th>
             <th style={{ border: '1px solid #999', padding: 6, textAlign: 'left' }}>Serial</th>
@@ -428,7 +431,6 @@ function PrintView({ termo }) {
         <tbody>
           {termo.equipamentos.map((eq) => (
             <tr key={eq.id}>
-              <td style={{ border: '1px solid #999', padding: 6 }}>{eq.patrimonio}</td>
               <td style={{ border: '1px solid #999', padding: 6 }}>{eq.tipo}</td>
               <td style={{ border: '1px solid #999', padding: 6 }}>{eq.modelo}</td>
               <td style={{ border: '1px solid #999', padding: 6 }}>{eq.serial}</td>
@@ -526,7 +528,7 @@ function ModelosModal({ onClose }) {
       <div className="panel" style={{ padding: 12, marginBottom: 16 }}>
         <div className="label-caps" style={{ marginBottom: 6 }}>Variáveis disponíveis no .docx</div>
         <p className="text-muted" style={{ fontSize: 12, lineHeight: 1.6, margin: 0 }}>
-          %nome% %cargo% %cpf% %matricula% %setor% %numero% %data% %status% %data_assinatura% %observacoes% %patrimonio% %serial% %imei% %modelo% %equipamentos%
+          %nome% %cargo% %cpf% %matricula% %setor% %numero% %data% %status% %data_assinatura% %observacoes% %serial% %imei% %modelo% %equipamentos%
           <br />
           Envie um arquivo .docx com essas variáveis no texto — a formatação original é mantida. %cpf%, %matricula%
           e %setor% só são preenchidos se o termo estiver vinculado a um Responsável cadastrado. Qualquer outra

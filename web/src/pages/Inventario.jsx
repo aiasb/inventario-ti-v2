@@ -143,9 +143,9 @@ export function Inventario() {
   }
 
   function exportCsv() {
-    const header = ['Patrimônio', 'Serial', 'Tipo', 'Modelo', 'Hostname', 'IMEI', 'Usuário', 'Setor', 'Status', 'Garantia'];
+    const header = ['Serial', 'Tipo', 'Modelo', 'Hostname', 'IMEI', 'Usuário', 'Setor', 'Status', 'Garantia'];
     const rows = equipamentos.map((e) => [
-      e.patrimonio, e.serial, e.tipo?.nome, e.modelo, e.hostname || '', e.imei || '', e.usuarioResponsavel || '',
+      e.serial, e.tipo?.nome, e.modelo, e.hostname || '', e.imei || '', e.usuarioResponsavel || '',
       e.setor?.nome || '', e.status, formatDate(e.dataGarantia),
     ]);
     const csv = [header, ...rows].map((r) => r.map((v) => `"${String(v ?? '').replace(/"/g, '""')}"`).join(';')).join('\n');
@@ -362,7 +362,9 @@ export function Inventario() {
                   onChange={(e) => setForm((f) => ({ ...f, tipoId: e.target.value, hostname: '', imei: '' }))}
                 >
                   <option value="">Selecione</option>
-                  {tipos.map((t) => <option key={t.id} value={t.id}>{t.nome}</option>)}
+                  {tipos.filter((t) => t.ativo || String(t.id) === String(form.tipoId)).map((t) => (
+                    <option key={t.id} value={t.id}>{t.nome}{!t.ativo ? ' (inativo)' : ''}</option>
+                  ))}
                 </select>
               </div>
               <div className="field full">
@@ -388,14 +390,18 @@ export function Inventario() {
                 <label>Setor</label>
                 <select className="input" value={form.setorId} onChange={(e) => setForm((f) => ({ ...f, setorId: e.target.value }))}>
                   <option value="">—</option>
-                  {setores.map((s) => <option key={s.id} value={s.id}>{s.nome}</option>)}
+                  {setores.filter((s) => s.ativo || String(s.id) === String(form.setorId)).map((s) => (
+                    <option key={s.id} value={s.id}>{s.nome}{!s.ativo ? ' (inativo)' : ''}</option>
+                  ))}
                 </select>
               </div>
               <div className="field">
                 <label>Fornecedor</label>
                 <select className="input" value={form.fornecedorId} onChange={(e) => setForm((f) => ({ ...f, fornecedorId: e.target.value }))}>
                   <option value="">—</option>
-                  {fornecedores.map((f2) => <option key={f2.id} value={f2.id}>{f2.nome}</option>)}
+                  {fornecedores.filter((f2) => f2.ativo || String(f2.id) === String(form.fornecedorId)).map((f2) => (
+                    <option key={f2.id} value={f2.id}>{f2.nome}{!f2.ativo ? ' (inativo)' : ''}</option>
+                  ))}
                 </select>
               </div>
               <div className="field">
@@ -407,7 +413,9 @@ export function Inventario() {
                   onChange={(e) => setForm((f) => ({ ...f, responsavelId: e.target.value }))}
                 >
                   <option value="">— Nenhum (fica em estoque) —</option>
-                  {responsaveis.map((r) => <option key={r.id} value={r.id}>{r.nome}</option>)}
+                  {responsaveis.filter((r) => r.ativo || String(r.id) === String(form.responsavelId)).map((r) => (
+                    <option key={r.id} value={r.id}>{r.nome}{!r.ativo ? ' (inativo)' : ''}</option>
+                  ))}
                 </select>
               </div>
               <div className="field">
@@ -455,7 +463,7 @@ function EquipamentoDrawer({ id, onClose, onEdit }) {
 
   return (
     <Drawer
-      title={equip.patrimonio}
+      title={equip.serial}
       subtitle={<StatusBadge status={equip.status} />}
       onClose={onClose}
     >

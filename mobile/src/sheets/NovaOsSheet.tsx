@@ -44,7 +44,7 @@ export function NovaOsSheet({
       const os = await abrirOs({ equipamentoId: equipamento.id, titulo, tipo, tecnico });
       reset();
       onClose();
-      showToast(`${os.os} aberta para ${equipamento.patrimonio}.`);
+      showToast(`${os.os} aberta para ${equipamento.serial}.`);
     } finally {
       setSaving(false);
     }
@@ -55,7 +55,7 @@ export function NovaOsSheet({
       <View style={styles.headerRow}>
         <Text style={styles.title}>Abrir OS</Text>
         <View style={styles.patBadge}>
-          <Text style={styles.patText}>{equipamento.patrimonio}</Text>
+          <Text style={styles.patText}>{equipamento.serial}</Text>
         </View>
       </View>
 

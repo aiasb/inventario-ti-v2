@@ -17,6 +17,10 @@ const SEM_RESPONSAVEL = 'Nenhum (fica em estoque)';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
+function toDateInput(iso: string | null | undefined): string {
+  return iso ? iso.slice(0, 10) : '';
+}
+
 function emptyState() {
   return {
     tipoNome: '',
@@ -26,33 +30,54 @@ function emptyState() {
     imei: '',
     responsavelNome: SEM_RESPONSAVEL,
     setorNome: '',
+    dataAquisicao: '',
+    dataGarantia: '',
+    observacoes: '',
   };
 }
 
-export function NovoEquipamentoSheet() {
-  const { novoEquipamentoVisible, closeNovoEquipamento } = useSheet();
-  const { proximoPatrimonio, criarEquipamento, tiposEquipamento, setores, responsaveis } = useAppData();
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+export function EquipamentoSheet() {
+  const { equipamentoSheetVisible, editingEquipamento, closeEquipamentoSheet } = useSheet();
+  const { criarEquipamento, editarEquipamento, tiposEquipamento, setores, responsaveis } = useAppData();
   const { showToast } = useToast();
   const navigation = useNavigation<Nav>();
 
+  const editing = editingEquipamento;
   const [form, setForm] = useState(emptyState());
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (novoEquipamentoVisible) {
+    if (!equipamentoSheetVisible) return;
+    if (editing) {
+      setForm({
+        tipoNome: editing.tipo.nome,
+        modelo: editing.modelo,
+        serial: editing.serial,
+        hostname: editing.hostname || '',
+        imei: editing.imei || '',
+        responsavelNome: editing.responsavel?.nome || SEM_RESPONSAVEL,
+        setorNome: editing.setor?.nome || setores[0]?.nome || '',
+        dataAquisicao: toDateInput(editing.dataAquisicao),
+        dataGarantia: toDateInput(editing.dataGarantia),
+        observacoes: editing.observacoes || '',
+      });
+    } else {
       setForm({
         ...emptyState(),
         tipoNome: tiposEquipamento[0]?.nome || '',
         setorNome: setores[0]?.nome || '',
       });
     }
-  }, [novoEquipamentoVisible, tiposEquipamento, setores]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [equipamentoSheetVisible, editing]);
 
   const tipoOptions = tiposEquipamento.map((t) => t.nome);
   const setorOptions = setores.map((s) => s.nome);
   const responsavelOptions = [SEM_RESPONSAVEL, ...responsaveis.map((r) => r.nome)];
 
-  const selectedTipo = tiposEquipamento.find((t) => t.nome === form.tipoNome);
+  const selectedTipo = tiposEquipamento.find((t) => t.nome === form.tipoNome) || editing?.tipo;
   const needsHostname = selectedTipo?.nome === 'Notebook' || selectedTipo?.nome === 'Desktop';
   const showsHostname = needsHostname || !!selectedTipo?.prefixoHostname;
   const needsImei = selectedTipo?.nome === 'Celular';
@@ -71,6 +96,8 @@ export function NovoEquipamentoSheet() {
       const digits = form.imei.replace(/\D/g, '');
       if (digits.length < 14 || digits.length > 16) missing.push('IMEI (14–16 dígitos)');
     }
+    if (form.dataAquisicao && !DATE_RE.test(form.dataAquisicao)) missing.push('Data de aquisição (AAAA-MM-DD)');
+    if (form.dataGarantia && !DATE_RE.test(form.dataGarantia)) missing.push('Garantia até (AAAA-MM-DD)');
 
     if (missing.length > 0) {
       showToast(`Preencha: ${missing.join(', ')}`);
@@ -79,22 +106,34 @@ export function NovoEquipamentoSheet() {
 
     const responsavel = responsaveis.find((r) => r.nome === form.responsavelNome);
     const setor = setores.find((s) => s.nome === form.setorNome);
+    const tipoId = selectedTipo!.id;
 
     setSaving(true);
     try {
-      const created = await criarEquipamento({
-        tipoId: selectedTipo!.id,
+      const input = {
+        tipoId,
         modelo: form.modelo,
         serial: form.serial,
         hostname: showsHostname ? form.hostname || null : null,
         imei: needsImei ? form.imei.replace(/\D/g, '') : null,
         responsavelId: responsavel?.id || null,
         setorId: setor?.id || null,
-        status: responsavel ? 'Ativo' : 'Estoque',
-      });
-      closeNovoEquipamento();
-      navigation.navigate('Tabs', { screen: 'Itens', params: { statusFilter: 'Todos' } } as never);
-      showToast(`${created.patrimonio} cadastrado com sucesso.`);
+        status: (responsavel ? 'Ativo' : 'Estoque') as 'Ativo' | 'Estoque',
+        dataAquisicao: form.dataAquisicao || null,
+        dataGarantia: form.dataGarantia || null,
+        observacoes: form.observacoes || null,
+      };
+
+      if (editing) {
+        const updated = await editarEquipamento(editing.id, input);
+        closeEquipamentoSheet();
+        showToast(`${updated.serial} atualizado com sucesso.`);
+      } else {
+        const created = await criarEquipamento(input);
+        closeEquipamentoSheet();
+        navigation.navigate('Tabs', { screen: 'Itens', params: { statusFilter: 'Todos' } } as never);
+        showToast(`${created.serial} cadastrado com sucesso.`);
+      }
     } catch (err: any) {
       showToast(err?.message || 'Não foi possível salvar o equipamento.');
     } finally {
@@ -103,12 +142,9 @@ export function NovoEquipamentoSheet() {
   }
 
   return (
-    <BottomSheet visible={novoEquipamentoVisible} onClose={closeNovoEquipamento}>
+    <BottomSheet visible={equipamentoSheetVisible} onClose={closeEquipamentoSheet}>
       <View style={styles.headerRow}>
-        <Text style={styles.title}>Novo equipamento</Text>
-        <View style={styles.patBadge}>
-          <Text style={styles.patText}>{proximoPatrimonio}</Text>
-        </View>
+        <Text style={styles.title}>{editing ? 'Editar equipamento' : 'Novo equipamento'}</Text>
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
@@ -157,14 +193,43 @@ export function NovoEquipamentoSheet() {
         />
 
         <SelectField label="Setor" value={form.setorNome} options={setorOptions} onChange={(v) => set('setorNome', v)} />
+
+        <View style={styles.row2}>
+          <View style={styles.col}>
+            <FormField
+              label="Data de aquisição"
+              placeholder="AAAA-MM-DD"
+              keyboardType="numbers-and-punctuation"
+              value={form.dataAquisicao}
+              onChangeText={(v) => set('dataAquisicao', v)}
+            />
+          </View>
+          <View style={styles.col}>
+            <FormField
+              label="Garantia até"
+              placeholder="AAAA-MM-DD"
+              keyboardType="numbers-and-punctuation"
+              value={form.dataGarantia}
+              onChangeText={(v) => set('dataGarantia', v)}
+            />
+          </View>
+        </View>
+
+        <FormField
+          label="Observações"
+          placeholder="Opcional"
+          multiline
+          value={form.observacoes}
+          onChangeText={(v) => set('observacoes', v)}
+        />
       </ScrollView>
 
       <View style={styles.actions}>
-        <Pressable style={styles.cancelBtn} onPress={closeNovoEquipamento}>
+        <Pressable style={styles.cancelBtn} onPress={closeEquipamentoSheet}>
           <Text style={styles.cancelText}>Cancelar</Text>
         </Pressable>
         <Pressable style={[styles.saveBtn, saving && { opacity: 0.6 }]} onPress={handleSave} disabled={saving}>
-          <Text style={styles.saveText}>{saving ? 'Salvando…' : 'Salvar equipamento'}</Text>
+          <Text style={styles.saveText}>{saving ? 'Salvando…' : editing ? 'Salvar alterações' : 'Salvar equipamento'}</Text>
         </Pressable>
       </View>
     </BottomSheet>
@@ -182,19 +247,6 @@ const styles = StyleSheet.create({
     fontFamily: fonts.titleSemiBold,
     fontSize: 19,
     color: colors.text,
-  },
-  patBadge: {
-    borderWidth: 1,
-    borderColor: 'rgba(87,178,94,0.35)',
-    backgroundColor: 'rgba(87,178,94,0.12)',
-    borderRadius: radius.pill,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-  },
-  patText: {
-    fontFamily: fonts.monoSemiBold,
-    fontSize: 12,
-    color: colors.accent,
   },
   row2: {
     flexDirection: 'row',

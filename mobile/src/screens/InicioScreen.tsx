@@ -86,7 +86,7 @@ export function InicioScreen() {
               onPress={() => navigation.navigate('Detalhe', { id: e.id })}
             >
               <View style={styles.warrantyLeft}>
-                <Text style={styles.warrantyPat}>{e.patrimonio}</Text>
+                <Text style={styles.warrantyPat}>{e.serial}</Text>
                 <Text style={styles.warrantyModelo} numberOfLines={1}>{e.modelo}</Text>
               </View>
               <View

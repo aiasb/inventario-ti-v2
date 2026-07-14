@@ -55,7 +55,7 @@ export function ItensScreen() {
       if (filter !== 'Todos' && e.status !== filter) return false;
       if (!q) return true;
       return (
-        e.patrimonio.toLowerCase().includes(q) ||
+        e.serial.toLowerCase().includes(q) ||
         e.modelo.toLowerCase().includes(q) ||
         (e.responsavel?.nome || '').toLowerCase().includes(q) ||
         (e.hostname || '').toLowerCase().includes(q) ||
@@ -75,7 +75,7 @@ export function ItensScreen() {
           <TextInput
             value={query}
             onChangeText={setQuery}
-            placeholder="Buscar patrimônio, modelo, usuário…"
+            placeholder="Buscar serial, modelo, usuário…"
             placeholderTextColor={colors.textMuted}
             style={styles.searchInput}
           />

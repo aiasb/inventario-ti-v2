@@ -12,7 +12,7 @@ import { AppDataProvider } from './src/context/AppDataContext';
 import { ToastProvider } from './src/context/ToastContext';
 import { SheetProvider } from './src/context/SheetContext';
 import { RootNavigator } from './src/navigation/RootNavigator';
-import { NovoEquipamentoSheet } from './src/sheets/NovoEquipamentoSheet';
+import { EquipamentoSheet } from './src/sheets/EquipamentoSheet';
 
 const navigationTheme = {
   ...DarkTheme,
@@ -43,7 +43,7 @@ export default function App() {
             <SheetProvider>
               <NavigationContainer theme={navigationTheme}>
                 <RootNavigator />
-                <NovoEquipamentoSheet />
+                <EquipamentoSheet />
               </NavigationContainer>
             </SheetProvider>
           </AppDataProvider>

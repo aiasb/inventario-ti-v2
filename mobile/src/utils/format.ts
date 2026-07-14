@@ -69,15 +69,6 @@ export function initials(name: string): string {
   return (first + last).toUpperCase();
 }
 
-export function nextPatrimonio(existing: string[]): string {
-  let max = 0;
-  for (const pat of existing) {
-    const match = pat.match(/PAT-(\d+)/);
-    if (match) max = Math.max(max, parseInt(match[1], 10));
-  }
-  return `PAT-${String(max + 1).padStart(4, '0')}`;
-}
-
 export function nextHostname(prefix: string, existing: string[]): string {
   let max = 0;
   const re = new RegExp(`UCACU-${prefix}-(\\d+)`);

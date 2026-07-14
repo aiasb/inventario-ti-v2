@@ -13,7 +13,7 @@ export function EquipRow({ item, onPress }: { item: Equipamento; onPress: () => 
         <Text style={styles.siglaText}>{tipoSigla(item.tipo)}</Text>
       </View>
       <View style={styles.info}>
-        <Text style={styles.pat}>{item.patrimonio} <Text style={styles.modelo}>{item.modelo}</Text></Text>
+        <Text style={styles.pat}>{item.serial} <Text style={styles.modelo}>{item.modelo}</Text></Text>
         <Text style={styles.sub} numberOfLines={1}>{item.responsavel?.nome || 'Estoque TI'} · {item.setor?.nome || '—'}</Text>
       </View>
       <StatusBadge status={item.status} size="sm" />

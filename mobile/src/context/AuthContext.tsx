@@ -9,13 +9,7 @@ import {
   setTokens,
   setUnauthorizedHandler,
 } from '../api/client';
-
-export interface ModulePermission {
-  podeVer: boolean;
-  podeCriar: boolean;
-  podeEditar: boolean;
-  podeExcluir: boolean;
-}
+import { ModulePermission } from '../types/models';
 
 export interface Usuario {
   id: number;

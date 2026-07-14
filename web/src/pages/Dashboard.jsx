@@ -247,7 +247,7 @@ export function Dashboard() {
               <div key={e.id} className="flex justify-between items-center" style={{ padding: '9px 0', borderBottom: '1px solid var(--border-soft)' }}>
                 <div>
                   <div style={{ fontSize: 13, fontWeight: 500 }}>{e.modelo}</div>
-                  <div className="text-muted mono" style={{ fontSize: 11.5 }}>{e.patrimonio} · {e.serial}</div>
+                  <div className="text-muted mono" style={{ fontSize: 11.5 }}>{e.serial}</div>
                 </div>
                 <span className={`warranty-text ${w.className}`} style={{ fontSize: 12.5 }}>
                   {formatDate(e.dataGarantia)} · {w.label}
@@ -275,7 +275,7 @@ export function Dashboard() {
                 </div>
                 <div style={{ fontSize: 13, margin: '4px 0 2px' }}>{m.titulo}</div>
                 <div className="text-muted" style={{ fontSize: 11.5 }}>
-                  {m.equipamento.patrimonio} · {formatDateTime(m.data)}
+                  {m.equipamento.serial} · {formatDateTime(m.data)}
                 </div>
               </div>
             ))}

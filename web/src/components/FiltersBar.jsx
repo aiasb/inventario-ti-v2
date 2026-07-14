@@ -47,7 +47,7 @@ export function FiltersBar({ filters, onChange, showStatus = true, showSearch = 
           <label>Busca rápida</label>
           <input
             className="input w-full"
-            placeholder="Serial, patrimônio, modelo…"
+            placeholder="Serial, modelo…"
             value={filters.q || ''}
             onChange={(e) => set('q', e.target.value)}
           />

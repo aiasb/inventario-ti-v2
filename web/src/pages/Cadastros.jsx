@@ -11,11 +11,9 @@ const TABS = [
     key: 'tipos-equipamento', label: 'Tipos de equipamento',
     fields: [
       { name: 'nome', label: 'Nome', required: true },
-      { name: 'prefixoHostname', label: 'Prefixo do hostname (ex: NB)' },
     ],
     columns: [
       { key: 'nome', label: 'Nome' },
-      { key: 'prefixoHostname', label: 'Prefixo hostname' },
     ],
   },
   {

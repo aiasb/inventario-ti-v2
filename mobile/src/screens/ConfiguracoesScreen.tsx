@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Alert, Modal, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Header } from '../components/Header';
 import { SectionCard } from '../components/SectionCard';
 import { ToggleRow, LinkRow } from '../components/SettingRow';
@@ -12,10 +14,14 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { DEFAULT_PREFERENCES, loadPreferences, Preferences, savePreferences } from '../data/preferences';
 import { initials } from '../utils/format';
+import { RootStackParamList } from '../navigation/types';
+
+type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 export function ConfiguracoesScreen() {
+  const navigation = useNavigation<Nav>();
   const { equipamentos, setores } = useAppData();
-  const { usuario, serverUrl, logout } = useAuth();
+  const { usuario, serverUrl, logout, podeVer } = useAuth();
   const { showToast } = useToast();
   const [prefs, setPrefs] = useState<Preferences>(DEFAULT_PREFERENCES);
   const [sobreVisible, setSobreVisible] = useState(false);
@@ -32,9 +38,9 @@ export function ConfiguracoesScreen() {
   }
 
   async function handleExportCsv() {
-    const header = ['Patrimônio', 'Tipo', 'Modelo', 'Serial', 'Hostname', 'Responsável', 'Setor', 'Status', 'Garantia'];
+    const header = ['Tipo', 'Modelo', 'Serial', 'Hostname', 'Responsável', 'Setor', 'Status', 'Garantia'];
     const rows = equipamentos.map((e) => [
-      e.patrimonio, e.tipo.nome, e.modelo, e.serial, e.hostname || '',
+      e.tipo.nome, e.modelo, e.serial, e.hostname || '',
       e.responsavel?.nome || 'Estoque TI', e.setor?.nome || '', e.status, e.dataGarantia || '',
     ]);
     const csv = [header, ...rows].map((r) => r.join(';')).join('\n');
@@ -104,6 +110,20 @@ export function ConfiguracoesScreen() {
           <LinkRow title="Exportar CSV" value="inventário completo" onPress={handleExportCsv} />
           <LinkRow title="Sobre" value="Inventário TI v2 · mobile" onPress={() => setSobreVisible(true)} isLast />
         </SectionCard>
+
+        {(podeVer('cadastros') || podeVer('responsaveis') || podeVer('acessos')) && (
+          <SectionCard title="Administração" style={{ marginBottom: spacing.lg }}>
+            {podeVer('cadastros') && (
+              <LinkRow title="Cadastros" value="tipos, setores, fornecedores" onPress={() => navigation.navigate('Cadastros')} />
+            )}
+            {podeVer('responsaveis') && (
+              <LinkRow title="Responsáveis" onPress={() => navigation.navigate('Responsaveis')} />
+            )}
+            {podeVer('acessos') && (
+              <LinkRow title="Acessos" value="usuários e perfis" onPress={() => navigation.navigate('Acessos')} isLast />
+            )}
+          </SectionCard>
+        )}
 
         <Pressable style={styles.logoutBtn} onPress={handleSairDaConta}>
           <Text style={styles.logoutText}>Sair da conta</Text>

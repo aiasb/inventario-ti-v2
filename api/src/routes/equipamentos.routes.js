@@ -33,7 +33,7 @@ const upload = multer({
 });
 
 const BASE_SELECT = `
-  SELECT e.id, e.patrimonio, e.serial, e.hostname, e.imei, e.modelo, e.status,
+  SELECT e.id, e.serial, e.hostname, e.imei, e.modelo, e.status,
          e.data_aquisicao, e.data_garantia, e.foto_url,
          e.observacoes, e.created_at, e.updated_at,
          t.id AS tipo_id, t.nome AS tipo_nome, t.prefixo_hostname,
@@ -50,7 +50,6 @@ const BASE_SELECT = `
 function mapRow(r) {
   return {
     id: r.id,
-    patrimonio: r.patrimonio,
     serial: r.serial,
     hostname: r.hostname,
     imei: r.imei,
@@ -72,7 +71,6 @@ function mapRow(r) {
 
 const SORT_COLUMNS = {
   serial: 'e.serial',
-  patrimonio: 'e.patrimonio',
   modelo: 'e.modelo',
   hostname: 'e.hostname',
   status: 'e.status',
@@ -165,7 +163,7 @@ router.get(
       params.push(`%${q}%`);
       const idx = params.length;
       conditions.push(
-        `(e.serial ILIKE $${idx} OR e.modelo ILIKE $${idx} OR e.patrimonio ILIKE $${idx} OR e.hostname ILIKE $${idx} OR resp.nome ILIKE $${idx})`
+        `(e.serial ILIKE $${idx} OR e.modelo ILIKE $${idx} OR e.hostname ILIKE $${idx} OR resp.nome ILIKE $${idx})`
       );
     }
 
@@ -302,16 +300,6 @@ function validateEquipamentoBody(body, { partial = false } = {}) {
   }
 }
 
-async function nextPatrimonio() {
-  const { rows } = await query(
-    `SELECT patrimonio FROM equipamentos WHERE patrimonio ~ '^PAT-[0-9]+$'
-     ORDER BY (regexp_replace(patrimonio, '\\D', '', 'g'))::int DESC LIMIT 1`
-  );
-  const last = rows[0]?.patrimonio;
-  const n = last ? parseInt(last.replace('PAT-', ''), 10) + 1 : 1;
-  return `PAT-${String(n).padStart(5, '0')}`;
-}
-
 /**
  * @openapi
  * /equipamentos:
@@ -335,15 +323,14 @@ router.post(
     if (status === 'Ativo' && !responsavelId) {
       throw badRequest('Equipamentos com status Ativo precisam de um responsável.');
     }
-    const patrimonio = req.body.patrimonio || (await nextPatrimonio());
 
     const { rows } = await query(
       `INSERT INTO equipamentos
-        (patrimonio, tipo_id, modelo, serial, hostname, imei, setor_id, fornecedor_id,
+        (tipo_id, modelo, serial, hostname, imei, setor_id, fornecedor_id,
          responsavel_id, status, data_aquisicao, data_garantia, observacoes)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,COALESCE($10,'Estoque'),$11,$12,$13)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,COALESCE($9,'Estoque'),$10,$11,$12)
        RETURNING id`,
-      [patrimonio, tipoId, modelo, serial, hostname || null, imei || null, setorId || null,
+      [tipoId, modelo, serial, hostname || null, imei || null, setorId || null,
        fornecedorId || null, responsavelId || null, status || null, dataAquisicao || null,
        dataGarantia || null, observacoes || null]
     );
@@ -384,7 +371,7 @@ router.put(
     }
 
     const fields = {
-      patrimonio: 'patrimonio', tipoId: 'tipo_id', modelo: 'modelo', serial: 'serial',
+      tipoId: 'tipo_id', modelo: 'modelo', serial: 'serial',
       hostname: 'hostname', imei: 'imei', setorId: 'setor_id', fornecedorId: 'fornecedor_id',
       responsavelId: 'responsavel_id', status: 'status', dataAquisicao: 'data_aquisicao',
       dataGarantia: 'data_garantia', observacoes: 'observacoes',
