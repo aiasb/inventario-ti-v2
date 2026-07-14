@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import {
   Image,
   KeyboardAvoidingView,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -44,13 +43,12 @@ export function LoginScreen() {
   }
 
   return (
-    <KeyboardAvoidingView
-      style={styles.screen}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
+    // behavior="padding" também no Android: com edge-to-edge o
+    // windowSoftInputMode=adjustResize é ignorado e o teclado cobria os campos
+    <KeyboardAvoidingView style={styles.screen} behavior="padding">
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <View style={styles.logoWrap}>
-          <Image source={require('../../assets/icon.png')} style={styles.logo} resizeMode="contain" />
+          <Image source={require('../../assets/logo-cacu.png')} style={styles.logo} resizeMode="contain" />
           <Text style={styles.company}>USINA CAÇU</Text>
           <Text style={styles.product}>Inventário TI</Text>
         </View>

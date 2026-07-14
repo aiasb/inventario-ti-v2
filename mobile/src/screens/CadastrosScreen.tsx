@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { FlatList, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -90,11 +90,12 @@ function emptyForm(tab: TabConfig): Record<string, string> {
 
 export function CadastrosScreen() {
   const navigation = useNavigation<Nav>();
+  const route = useRoute<RouteProp<RootStackParamList, 'Cadastros'>>();
   const insets = useSafeAreaInsets();
   const { podeCriar, podeEditar, podeExcluir } = useAuth();
   const { showToast } = useToast();
 
-  const [activeTabKey, setActiveTabKey] = useState<TabConfig['key']>('tipos-equipamento');
+  const [activeTabKey, setActiveTabKey] = useState<TabConfig['key']>(route.params?.tab ?? 'tipos-equipamento');
   const tab = TABS.find((t) => t.key === activeTabKey)!;
 
   const [items, setItems] = useState<(Setor | TipoEquipamento | Fornecedor)[]>([]);
@@ -191,7 +192,7 @@ export function CadastrosScreen() {
         )}
       </View>
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabsRow}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabsScroll} contentContainerStyle={styles.tabsRow}>
         {TABS.map((t) => (
           <Chip key={t.key} label={t.label} active={t.key === activeTabKey} onPress={() => setActiveTabKey(t.key)} />
         ))}
@@ -278,7 +279,10 @@ const styles = StyleSheet.create({
     width: 36, height: 36, borderRadius: 10, backgroundColor: colors.accent,
     alignItems: 'center', justifyContent: 'center',
   },
-  tabsRow: { paddingHorizontal: spacing.xl, gap: spacing.sm, paddingBottom: spacing.md },
+  // flexGrow:0 evita que o ScrollView horizontal (flexGrow:1 por padrão)
+  // ocupe a altura livre da tela e estique os chips das abas
+  tabsScroll: { flexGrow: 0, marginBottom: spacing.md },
+  tabsRow: { paddingHorizontal: spacing.xl, gap: spacing.sm, alignItems: 'center' },
   center: { alignItems: 'center', paddingTop: 60 },
   emptyText: { fontFamily: fonts.bodyRegular, fontSize: 13, color: colors.textMuted },
   listContent: { paddingHorizontal: spacing.xl, paddingBottom: 40 },

@@ -85,21 +85,17 @@ export function ItensScreen() {
         </Pressable>
       </View>
 
-      <FlatList
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        data={FILTERS}
-        keyExtractor={(item) => item}
-        contentContainerStyle={styles.chipsRow}
-        renderItem={({ item }) => (
+      <View style={styles.chipsWrap}>
+        {FILTERS.map((item) => (
           <Chip
+            key={item}
             label={FILTER_LABEL[item]}
             count={counts[item]}
             active={filter === item}
             onPress={() => setFilter(item)}
           />
-        )}
-      />
+        ))}
+      </View>
 
       <View style={styles.counterRow}>
         <Text style={styles.counterText}>{filtered.length} EQUIPAMENTOS</Text>
@@ -170,10 +166,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  chipsRow: {
-    paddingHorizontal: spacing.xl,
+  // chips quebram linha em vez de rolar na horizontal — nenhum filtro fica
+  // cortado na borda da tela
+  chipsWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: spacing.sm,
-    paddingBottom: spacing.md,
+    paddingHorizontal: spacing.xl,
+    marginBottom: spacing.md,
   },
   counterRow: {
     flexDirection: 'row',

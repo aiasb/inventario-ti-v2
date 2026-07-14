@@ -20,12 +20,11 @@ type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 export function ConfiguracoesScreen() {
   const navigation = useNavigation<Nav>();
-  const { equipamentos, setores } = useAppData();
+  const { equipamentos } = useAppData();
   const { usuario, serverUrl, logout, podeVer } = useAuth();
   const { showToast } = useToast();
   const [prefs, setPrefs] = useState<Preferences>(DEFAULT_PREFERENCES);
   const [sobreVisible, setSobreVisible] = useState(false);
-  const [setoresVisible, setSetoresVisible] = useState(false);
 
   useEffect(() => {
     loadPreferences().then(setPrefs);
@@ -102,11 +101,6 @@ export function ConfiguracoesScreen() {
         </SectionCard>
 
         <SectionCard title="Sistema" style={{ marginBottom: spacing.lg }}>
-          <LinkRow
-            title="Setores"
-            value={`${setores.length} setores`}
-            onPress={() => setSetoresVisible(true)}
-          />
           <LinkRow title="Exportar CSV" value="inventário completo" onPress={handleExportCsv} />
           <LinkRow title="Sobre" value="Inventário TI v2 · mobile" onPress={() => setSobreVisible(true)} isLast />
         </SectionCard>
@@ -137,12 +131,6 @@ export function ConfiguracoesScreen() {
         <Text style={[styles.modalText, { marginTop: 8, color: colors.textMuted }]}>
           Conectado a {serverUrl}
         </Text>
-      </InfoModal>
-
-      <InfoModal visible={setoresVisible} onClose={() => setSetoresVisible(false)} title="Setores">
-        {setores.map((s) => (
-          <Text key={s.id} style={styles.modalText}>• {s.nome}</Text>
-        ))}
       </InfoModal>
     </View>
   );

@@ -12,7 +12,7 @@ export type RootStackParamList = {
   Tabs: undefined;
   Detalhe: { id: number };
   BuscaAvancada: undefined;
-  Cadastros: undefined;
+  Cadastros: { tab?: 'tipos-equipamento' | 'setores' | 'fornecedores' } | undefined;
   Responsaveis: undefined;
   Acessos: undefined;
 };

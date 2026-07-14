@@ -79,8 +79,9 @@ export function EquipamentoSheet() {
 
   const selectedTipo = tiposEquipamento.find((t) => t.nome === form.tipoNome) || editing?.tipo;
   const needsHostname = selectedTipo?.nome === 'Notebook' || selectedTipo?.nome === 'Desktop';
-  const showsHostname = needsHostname || !!selectedTipo?.prefixoHostname;
   const needsImei = selectedTipo?.nome === 'Celular';
+  // Celular identifica-se pelo IMEI; não faz sentido pedir hostname mesmo tendo prefixo
+  const showsHostname = !needsImei && (needsHostname || !!selectedTipo?.prefixoHostname);
 
   function set<K extends keyof ReturnType<typeof emptyState>>(key: K, value: (typeof form)[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));

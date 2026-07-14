@@ -67,7 +67,10 @@ export function DetalheScreen() {
           <Text style={styles.pat}>{equipamento.serial}</Text>
           <Text style={styles.modelo} numberOfLines={1}>{equipamento.modelo}</Text>
         </View>
-        <StatusBadge status={equipamento.status} />
+        {/* wrapper anula o alignSelf:flex-start do badge p/ centralizar com o botão de editar */}
+        <View>
+          <StatusBadge status={equipamento.status} />
+        </View>
         {podeEditar('inventario') && (
           <Pressable style={styles.editBtn} onPress={() => openEditarEquipamento(equipamento)}>
             <Feather name="edit-2" size={16} color={colors.text} />

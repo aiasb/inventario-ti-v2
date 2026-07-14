@@ -21,6 +21,10 @@ mobile/ios/
 mobile/.expo/
 mobile/*.apk
 
+# cópia local remendada do react-android p/ build nativo no Windows
+# (ver mobile/android/build.gradle) — AARs ~450MB, não versionar
+/local-maven-repo/
+
 # logs
 *.log
 npm-debug.*

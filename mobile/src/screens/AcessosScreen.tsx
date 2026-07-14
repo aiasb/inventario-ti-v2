@@ -64,6 +64,7 @@ function emptyUsuarioForm() {
 function UsuariosTab() {
   const { podeCriar, podeEditar, podeExcluir } = useAuth();
   const { showToast } = useToast();
+  const insets = useSafeAreaInsets();
 
   const [usuarios, setUsuarios] = useState<UsuarioAdmin[]>([]);
   const [perfis, setPerfis] = useState<Perfil[]>([]);
@@ -245,7 +246,7 @@ function UsuariosTab() {
       )}
 
       {podeCriar('acessos') && (
-        <Pressable style={styles.fab} onPress={openNew}>
+        <Pressable style={[styles.fab, { bottom: insets.bottom + spacing.lg }]} onPress={openNew}>
           <Feather name="plus" size={22} color="#06210b" />
         </Pressable>
       )}
@@ -306,6 +307,7 @@ function emptyPerfilForm() {
 function PerfisTab() {
   const { podeCriar, podeEditar, podeExcluir } = useAuth();
   const { showToast } = useToast();
+  const insets = useSafeAreaInsets();
 
   const [perfis, setPerfis] = useState<Perfil[]>([]);
   const [loading, setLoading] = useState(true);
@@ -428,7 +430,7 @@ function PerfisTab() {
       )}
 
       {podeCriar('acessos') && (
-        <Pressable style={styles.fab} onPress={openNew}>
+        <Pressable style={[styles.fab, { bottom: insets.bottom + spacing.lg }]} onPress={openNew}>
           <Feather name="plus" size={22} color="#06210b" />
         </Pressable>
       )}
@@ -513,8 +515,10 @@ const styles = StyleSheet.create({
   },
   actionChipText: { fontFamily: fonts.bodyMedium, fontSize: 11.5, color: colors.textSecondary },
   dangerChip: { borderColor: 'rgba(217,92,74,0.35)', backgroundColor: 'rgba(217,92,74,0.1)' },
+  // bottom vem inline com insets.bottom p/ não ficar atrás da barra de
+  // navegação do Android (app roda edge-to-edge)
   fab: {
-    position: 'absolute', right: spacing.xl, bottom: spacing.xl,
+    position: 'absolute', right: spacing.xl,
     width: 52, height: 52, borderRadius: 26, backgroundColor: colors.accent,
     alignItems: 'center', justifyContent: 'center',
     shadowColor: colors.accent, shadowOpacity: 0.5, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 8,

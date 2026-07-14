@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
@@ -18,9 +18,7 @@ export function Header({ title, notificationCount = 0, onBellPress }: HeaderProp
   return (
     <View style={[styles.container, { paddingTop: insets.top + 10 }]}>
       <View style={styles.left}>
-        <View style={styles.logoMark}>
-          <Text style={styles.logoText}>caçu</Text>
-        </View>
+        <Image source={require('../../assets/logo-cacu.png')} style={styles.logoMark} resizeMode="contain" />
         <View>
           <Text style={styles.eyebrow}>USINA CAÇU · INVENTÁRIO TI</Text>
           <Text style={styles.title}>{title}</Text>
@@ -58,15 +56,6 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: radius.sm,
-    backgroundColor: colors.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  logoText: {
-    fontFamily: fonts.titleBold,
-    fontSize: 10,
-    color: '#06210b',
-    textTransform: 'lowercase',
   },
   eyebrow: {
     fontFamily: fonts.mono,
