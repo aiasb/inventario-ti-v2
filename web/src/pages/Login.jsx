@@ -72,10 +72,6 @@ export function Login() {
             {loading ? 'Entrando…' : 'Entrar'}
           </button>
         </form>
-
-        <div className="login-hint">
-          Usuário de exemplo: rafael.almeida@usinacacu.com.br · senha Usina@123
-        </div>
       </div>
     </div>
   );
