@@ -80,16 +80,20 @@ export function TermosScreen() {
   }
 
   function handleDelete(termo: Termo) {
-    Alert.alert('Excluir termo', `Excluir o termo ${termo.numero}? Essa ação não pode ser desfeita.`, [
-      { text: 'Cancelar', style: 'cancel' },
+    const titulo = termo.pendingSync ? 'Cancelar termo' : 'Excluir termo';
+    const mensagem = termo.pendingSync
+      ? 'Este termo ainda não foi enviado ao servidor — cancelar descarta o cadastro.'
+      : `Excluir o termo ${termo.numero}? Essa ação não pode ser desfeita.`;
+    Alert.alert(titulo, mensagem, [
+      { text: 'Voltar', style: 'cancel' },
       {
-        text: 'Excluir',
+        text: termo.pendingSync ? 'Cancelar termo' : 'Excluir',
         style: 'destructive',
         onPress: async () => {
           setDeletingId(termo.id);
           try {
             await excluirTermo(termo.id);
-            showToast(`${termo.numero} excluído.`);
+            showToast(termo.pendingSync ? 'Termo cancelado.' : `${termo.numero} excluído.`);
           } finally {
             setDeletingId(null);
           }
@@ -99,7 +103,7 @@ export function TermosScreen() {
   }
 
   const renderItem = ({ item }: { item: Termo }) => {
-    const color = item.assinado ? colors.accent : colors.statusManutencao;
+    const color = item.pendingSync ? colors.statusManutencao : item.assinado ? colors.accent : colors.statusManutencao;
     const equipamentosResumo = item.equipamentos.map((e) => e.serial).join(', ') || 'sem equipamentos vinculados';
     const busy = updatingId === item.id || deletingId === item.id;
     const pdfBusy = pdfLoadingId === item.id;
@@ -110,7 +114,9 @@ export function TermosScreen() {
           <View style={{ flexDirection: 'row', gap: 6 }}>
             <View style={[styles.statusBadge, { backgroundColor: withAlpha(color, 0.14), borderColor: withAlpha(color, 0.32) }]}>
               <View style={[styles.statusDot, { backgroundColor: color }]} />
-              <Text style={[styles.statusText, { color }]}>{item.assinado ? 'Assinado' : 'Pendente'}</Text>
+              <Text style={[styles.statusText, { color }]}>
+                {item.pendingSync ? 'Aguardando sincronização' : item.assinado ? 'Assinado' : 'Pendente'}
+              </Text>
             </View>
             {item.devolvido && (
               <View style={[styles.statusBadge, { backgroundColor: withAlpha(colors.textMuted, 0.14), borderColor: withAlpha(colors.textMuted, 0.32) }]}>
@@ -128,17 +134,19 @@ export function TermosScreen() {
         </Text>
 
         <View style={styles.actionsRow}>
-          <Pressable style={[styles.actionBtn, pdfBusy && { opacity: 0.6 }]} disabled={pdfBusy} onPress={() => handleVisualizarPdf(item)}>
-            <Feather name="file-text" size={14} color={colors.textSecondary} />
-            <Text style={styles.actionText}>{pdfBusy ? 'Gerando…' : 'Visualizar/baixar (PDF)'}</Text>
-          </Pressable>
-          {podeEditar('termos') && (
+          {!item.pendingSync && (
+            <Pressable style={[styles.actionBtn, pdfBusy && { opacity: 0.6 }]} disabled={pdfBusy} onPress={() => handleVisualizarPdf(item)}>
+              <Feather name="file-text" size={14} color={colors.textSecondary} />
+              <Text style={styles.actionText}>{pdfBusy ? 'Gerando…' : 'Visualizar/baixar (PDF)'}</Text>
+            </Pressable>
+          )}
+          {!item.pendingSync && podeEditar('termos') && (
             <Pressable style={[styles.actionBtn, busy && { opacity: 0.6 }]} disabled={busy} onPress={() => handleToggleAssinatura(item)}>
               <Feather name={item.assinado ? 'x-circle' : 'check-circle'} size={14} color={colors.textSecondary} />
               <Text style={styles.actionText}>{item.assinado ? 'Marcar como pendente' : 'Marcar como assinado'}</Text>
             </Pressable>
           )}
-          {podeEditar('termos') && (
+          {!item.pendingSync && podeEditar('termos') && (
             <Pressable style={[styles.actionBtn, busy && { opacity: 0.6 }]} disabled={busy} onPress={() => handleToggleDevolucao(item)}>
               <Feather name={item.devolvido ? 'rotate-ccw' : 'package'} size={14} color={colors.textSecondary} />
               <Text style={styles.actionText}>{item.devolvido ? 'Desfazer devolução' : 'Marcar como devolvido'}</Text>
@@ -147,7 +155,7 @@ export function TermosScreen() {
           {podeExcluir('termos') && (
             <Pressable style={[styles.actionBtn, styles.deleteBtn, busy && { opacity: 0.6 }]} disabled={busy} onPress={() => handleDelete(item)}>
               <Feather name="trash-2" size={14} color={colors.danger} />
-              <Text style={[styles.actionText, { color: colors.danger }]}>Excluir</Text>
+              <Text style={[styles.actionText, { color: colors.danger }]}>{item.pendingSync ? 'Cancelar' : 'Excluir'}</Text>
             </Pressable>
           )}
         </View>

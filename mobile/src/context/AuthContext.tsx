@@ -1,5 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
+  ApiClientError,
   api,
   bootstrapAuth,
   clearTokens,
@@ -10,6 +12,8 @@ import {
   setUnauthorizedHandler,
 } from '../api/client';
 import { ModulePermission } from '../types/models';
+
+const CACHED_USER_KEY = '@inventario/cachedUsuario';
 
 export interface Usuario {
   id: number;
@@ -44,6 +48,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = useCallback(async () => {
     await clearTokens();
+    await AsyncStorage.removeItem(CACHED_USER_KEY);
     setUsuario(null);
   }, []);
 
@@ -63,8 +68,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         const data = await api.get<{ usuario: Usuario }>('/auth/me');
         setUsuario(data.usuario);
-      } catch {
-        await clearTokens();
+        await AsyncStorage.setItem(CACHED_USER_KEY, JSON.stringify(data.usuario));
+      } catch (err) {
+        if (err instanceof ApiClientError && err.status === 0) {
+          // Sem rede no momento em que o app abriu — mantém a sessão com os
+          // dados do último /auth/me bem-sucedido em vez de deslogar (o
+          // token persistido continua válido e será revalidado assim que
+          // alguma chamada à API for possível).
+          const cached = await AsyncStorage.getItem(CACHED_USER_KEY);
+          if (cached) setUsuario(JSON.parse(cached));
+        } else {
+          await clearTokens();
+        }
       } finally {
         setLoading(false);
       }
@@ -78,6 +93,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
     await setTokens(data);
     setUsuario(data.usuario);
+    await AsyncStorage.setItem(CACHED_USER_KEY, JSON.stringify(data.usuario));
   }, []);
 
   const updateServerUrl = useCallback(async (url: string) => {

@@ -6,7 +6,7 @@ import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBadge } from '../components/StatusBadge';
 import { WarrantyBar } from '../components/WarrantyBar';
-import { colors } from '../theme/colors';
+import { colors, withAlpha } from '../theme/colors';
 import { fonts } from '../theme/typography';
 import { radius, spacing, touchTarget } from '../theme/spacing';
 import { useAppData } from '../context/AppDataContext';
@@ -69,7 +69,14 @@ export function DetalheScreen() {
         </View>
         {/* wrapper anula o alignSelf:flex-start do badge p/ centralizar com o botão de editar */}
         <View>
-          <StatusBadge status={equipamento.status} />
+          {equipamento.pendingSync ? (
+            <View style={[styles.pendingBadge, { backgroundColor: withAlpha(colors.statusManutencao, 0.14), borderColor: withAlpha(colors.statusManutencao, 0.32) }]}>
+              <Feather name="cloud-off" size={12} color={colors.statusManutencao} />
+              <Text style={[styles.pendingBadgeText, { color: colors.statusManutencao }]}>Pendente de sincronização</Text>
+            </View>
+          ) : (
+            <StatusBadge status={equipamento.status} />
+          )}
         </View>
         {podeEditar('inventario') && (
           <Pressable style={styles.editBtn} onPress={() => openEditarEquipamento(equipamento)}>
@@ -172,6 +179,19 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  pendingBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+  },
+  pendingBadgeText: {
+    fontFamily: fonts.monoMedium,
+    fontSize: 10.5,
   },
   editBtn: {
     width: 36,

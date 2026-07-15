@@ -11,6 +11,7 @@ import { useAppData } from '../context/AppDataContext';
 import { usePreferences } from '../context/PreferencesContext';
 import { RootStackParamList } from '../navigation/types';
 import { NotificacoesPanel } from './NotificacoesPanel';
+import { SyncBanner } from './SyncBanner';
 
 interface HeaderProps {
   title: string;
@@ -28,23 +29,27 @@ export function Header({ title }: HeaderProps) {
   const notificationCount = preferences.alertasGarantia ? garantiasVencendo.length : 0;
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top + 10 }]}>
-      <View style={styles.left}>
-        <Image source={require('../../assets/logo-cacu.png')} style={styles.logoMark} resizeMode="contain" />
-        <View>
-          <Text style={styles.eyebrow}>USINA CAÇU · INVENTÁRIO TI</Text>
-          <Text style={styles.title}>{title}</Text>
+    <>
+      <View style={[styles.container, { paddingTop: insets.top + 10 }]}>
+        <View style={styles.left}>
+          <Image source={require('../../assets/logo-cacu.png')} style={styles.logoMark} resizeMode="contain" />
+          <View>
+            <Text style={styles.eyebrow}>USINA CAÇU · INVENTÁRIO TI</Text>
+            <Text style={styles.title}>{title}</Text>
+          </View>
         </View>
+
+        <Pressable style={styles.bellButton} onPress={() => setPanelVisible(true)}>
+          <Feather name="bell" size={18} color={colors.text} />
+          {notificationCount > 0 && (
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>{notificationCount > 9 ? '9+' : notificationCount}</Text>
+            </View>
+          )}
+        </Pressable>
       </View>
 
-      <Pressable style={styles.bellButton} onPress={() => setPanelVisible(true)}>
-        <Feather name="bell" size={18} color={colors.text} />
-        {notificationCount > 0 && (
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>{notificationCount > 9 ? '9+' : notificationCount}</Text>
-          </View>
-        )}
-      </Pressable>
+      <SyncBanner onPress={() => navigation.navigate('Sincronizacao')} />
 
       <NotificacoesPanel
         visible={panelVisible}
@@ -58,7 +63,7 @@ export function Header({ title }: HeaderProps) {
         }))}
         onItemPress={(id) => navigation.navigate('Detalhe', { id })}
       />
-    </View>
+    </>
   );
 }
 

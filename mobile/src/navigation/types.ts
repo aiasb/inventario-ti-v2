@@ -17,6 +17,7 @@ export type RootStackParamList = {
   Cadastros: { tab?: 'tipos-equipamento' | 'setores' | 'fornecedores' } | undefined;
   Responsaveis: undefined;
   Acessos: undefined;
+  Sincronizacao: undefined;
 };
 
 declare global {

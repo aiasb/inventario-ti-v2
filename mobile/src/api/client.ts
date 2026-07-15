@@ -108,11 +108,12 @@ interface RequestOptions {
   body?: unknown;
   isForm?: boolean;
   retry?: boolean;
+  headers?: Record<string, string>;
 }
 
 async function request<T = unknown>(path: string, options: RequestOptions = {}): Promise<T> {
   const { method = 'GET', body, isForm = false, retry = true } = options;
-  const headers: Record<string, string> = {};
+  const headers: Record<string, string> = { ...options.headers };
   if (!isForm) headers['Content-Type'] = 'application/json';
   if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`;
 
@@ -161,10 +162,14 @@ async function request<T = unknown>(path: string, options: RequestOptions = {}):
 
 export const api = {
   get: <T = any>(path: string) => request<T>(path),
-  post: <T = any>(path: string, body?: unknown) => request<T>(path, { method: 'POST', body }),
-  put: <T = any>(path: string, body?: unknown) => request<T>(path, { method: 'PUT', body }),
-  patch: <T = any>(path: string, body?: unknown) => request<T>(path, { method: 'PATCH', body }),
-  delete: <T = any>(path: string) => request<T>(path, { method: 'DELETE' }),
+  post: <T = any>(path: string, body?: unknown, headers?: Record<string, string>) =>
+    request<T>(path, { method: 'POST', body, headers }),
+  put: <T = any>(path: string, body?: unknown, headers?: Record<string, string>) =>
+    request<T>(path, { method: 'PUT', body, headers }),
+  patch: <T = any>(path: string, body?: unknown, headers?: Record<string, string>) =>
+    request<T>(path, { method: 'PATCH', body, headers }),
+  delete: <T = any>(path: string, headers?: Record<string, string>) =>
+    request<T>(path, { method: 'DELETE', headers }),
 };
 
 export function qs(params: Record<string, unknown> = {}): string {

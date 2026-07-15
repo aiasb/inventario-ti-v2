@@ -59,7 +59,7 @@ export function ManutencoesScreen() {
   const hasActiveFilter = filter !== 'Todos' || query.trim().length > 0;
 
   const renderItem = ({ item }: { item: Manutencao }) => {
-    const color = statusManutencaoColor(item.status);
+    const color = item.pendingSync ? colors.statusManutencao : statusManutencaoColor(item.status);
     return (
       <Pressable
         style={styles.row}
@@ -69,7 +69,9 @@ export function ManutencoesScreen() {
           <Text style={styles.os}>{item.os}</Text>
           <View style={[styles.statusBadge, { backgroundColor: withAlpha(color, 0.14), borderColor: withAlpha(color, 0.32) }]}>
             <View style={[styles.statusDot, { backgroundColor: color }]} />
-            <Text style={[styles.statusText, { color }]}>{statusManutencaoLabel(item.status)}</Text>
+            <Text style={[styles.statusText, { color }]}>
+              {item.pendingSync ? 'Aguardando sincronização' : statusManutencaoLabel(item.status)}
+            </Text>
           </View>
         </View>
         <Text style={styles.titulo} numberOfLines={1}>{item.titulo}</Text>

@@ -17,6 +17,7 @@ import { useRefreshControl } from '../hooks/useRefreshControl';
 import { Preferences } from '../data/preferences';
 import { requestNotificationPermission } from '../utils/notifications';
 import { initials } from '../utils/format';
+import { useSyncState } from '../offline/syncEngine';
 import { RootStackParamList } from '../navigation/types';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -28,6 +29,7 @@ export function ConfiguracoesScreen() {
   const { showToast } = useToast();
   const { preferences: prefs, updatePreference } = usePreferences();
   const { refreshing, onRefresh } = useRefreshControl();
+  const { pendingCount, blockedItems } = useSyncState();
   const [sobreVisible, setSobreVisible] = useState(false);
 
   async function updatePref<K extends keyof Preferences>(key: K, value: Preferences[K]) {
@@ -110,6 +112,11 @@ export function ConfiguracoesScreen() {
         </SectionCard>
 
         <SectionCard title="Sistema" style={{ marginBottom: spacing.lg }}>
+          <LinkRow
+            title="Sincronização"
+            value={blockedItems.length > 0 ? `${blockedItems.length} com erro` : pendingCount > 0 ? `${pendingCount} pendente(s)` : 'em dia'}
+            onPress={() => navigation.navigate('Sincronizacao')}
+          />
           <LinkRow title="Exportar CSV" value="inventário completo" onPress={handleExportCsv} />
           <LinkRow title="Sobre" value="Inventário TI v2 · mobile" onPress={() => setSobreVisible(true)} isLast />
         </SectionCard>

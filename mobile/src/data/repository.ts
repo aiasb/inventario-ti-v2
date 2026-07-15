@@ -17,6 +17,13 @@ interface Paginated<T> {
   meta: { total: number; page: number; limit: number; totalPages: number };
 }
 
+/** Quando presente, vai no header Idempotency-Key — a fila de sincronização
+ * offline (mobile/src/offline) reenvia a mesma chave em cada retry, então o
+ * servidor devolve a resposta original em vez de repetir o efeito. */
+function idemHeaders(idempotencyKey?: string): Record<string, string> | undefined {
+  return idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : undefined;
+}
+
 export interface NovoEquipamentoInput {
   tipoId: number;
   modelo: string;
@@ -75,12 +82,12 @@ class RemoteRepository {
     return res.data;
   }
 
-  async createEquipamento(input: NovoEquipamentoInput): Promise<Equipamento> {
-    return api.post<Equipamento>('/equipamentos', equipamentoBody(input));
+  async createEquipamento(input: NovoEquipamentoInput, idempotencyKey?: string): Promise<Equipamento> {
+    return api.post<Equipamento>('/equipamentos', equipamentoBody(input), idemHeaders(idempotencyKey));
   }
 
-  async updateEquipamento(id: number, input: EditarEquipamentoInput): Promise<Equipamento> {
-    return api.put<Equipamento>(`/equipamentos/${id}`, equipamentoBody(input));
+  async updateEquipamento(id: number, input: EditarEquipamentoInput, idempotencyKey?: string): Promise<Equipamento> {
+    return api.put<Equipamento>(`/equipamentos/${id}`, equipamentoBody(input), idemHeaders(idempotencyKey));
   }
 
   async listManutencoes(equipamentoId?: number): Promise<Manutencao[]> {
@@ -90,13 +97,17 @@ class RemoteRepository {
     return res.data;
   }
 
-  async createManutencao(input: NovaManutencaoInput): Promise<Manutencao> {
-    return api.post<Manutencao>('/manutencoes', {
-      equipamentoId: input.equipamentoId,
-      titulo: input.titulo.trim(),
-      tipo: input.tipo,
-      tecnico: input.tecnico?.trim() || null,
-    });
+  async createManutencao(input: NovaManutencaoInput, idempotencyKey?: string): Promise<Manutencao> {
+    return api.post<Manutencao>(
+      '/manutencoes',
+      {
+        equipamentoId: input.equipamentoId,
+        titulo: input.titulo.trim(),
+        tipo: input.tipo,
+        tecnico: input.tecnico?.trim() || null,
+      },
+      idemHeaders(idempotencyKey)
+    );
   }
 
   // ---- Termos ---------------------------------------------------------------
@@ -106,27 +117,31 @@ class RemoteRepository {
     return res.data;
   }
 
-  async setTermoAssinatura(id: number, assinado: boolean): Promise<Termo> {
-    return api.patch<Termo>(`/termos/${id}/assinatura`, { assinado });
+  async setTermoAssinatura(id: number, assinado: boolean, idempotencyKey?: string): Promise<Termo> {
+    return api.patch<Termo>(`/termos/${id}/assinatura`, { assinado }, idemHeaders(idempotencyKey));
   }
 
-  async setTermoDevolucao(id: number, devolvido: boolean): Promise<Termo> {
-    return api.patch<Termo>(`/termos/${id}/devolucao`, { devolvido });
+  async setTermoDevolucao(id: number, devolvido: boolean, idempotencyKey?: string): Promise<Termo> {
+    return api.patch<Termo>(`/termos/${id}/devolucao`, { devolvido }, idemHeaders(idempotencyKey));
   }
 
-  async deleteTermo(id: number): Promise<void> {
-    await api.delete(`/termos/${id}`);
+  async deleteTermo(id: number, idempotencyKey?: string): Promise<void> {
+    await api.delete(`/termos/${id}`, idemHeaders(idempotencyKey));
   }
 
-  async createTermo(input: NovoTermoInput): Promise<Termo> {
-    return api.post<Termo>('/termos', {
-      colaborador: input.colaborador.trim(),
-      cargo: input.cargo?.trim() || null,
-      equipamentoIds: [input.equipamentoId],
-      responsavelId: input.responsavelId || null,
-      modeloId: input.modeloId || null,
-      observacoes: input.observacoes?.trim() || null,
-    });
+  async createTermo(input: NovoTermoInput, idempotencyKey?: string): Promise<Termo> {
+    return api.post<Termo>(
+      '/termos',
+      {
+        colaborador: input.colaborador.trim(),
+        cargo: input.cargo?.trim() || null,
+        equipamentoIds: [input.equipamentoId],
+        responsavelId: input.responsavelId || null,
+        modeloId: input.modeloId || null,
+        observacoes: input.observacoes?.trim() || null,
+      },
+      idemHeaders(idempotencyKey)
+    );
   }
 
   async listTermoModelos(): Promise<TermoModelo[]> {

@@ -8,6 +8,7 @@ import { BuscaAvancadaScreen } from '../screens/BuscaAvancadaScreen';
 import { CadastrosScreen } from '../screens/CadastrosScreen';
 import { ResponsaveisScreen } from '../screens/ResponsaveisScreen';
 import { AcessosScreen } from '../screens/AcessosScreen';
+import { SincronizacaoScreen } from '../screens/SincronizacaoScreen';
 import { LoginScreen } from '../screens/LoginScreen';
 import { useAuth } from '../context/AuthContext';
 import { colors } from '../theme/colors';
@@ -40,6 +41,7 @@ export function RootNavigator() {
         <Stack.Screen name="Cadastros" component={CadastrosScreen} />
         <Stack.Screen name="Responsaveis" component={ResponsaveisScreen} />
         <Stack.Screen name="Acessos" component={AcessosScreen} />
+        <Stack.Screen name="Sincronizacao" component={SincronizacaoScreen} />
       </Stack.Group>
     </Stack.Navigator>
   );

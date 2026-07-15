@@ -1,7 +1,8 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { colors } from '../theme/colors';
+import { Feather } from '@expo/vector-icons';
+import { colors, withAlpha } from '../theme/colors';
 import { fonts } from '../theme/typography';
 import { radius, spacing } from '../theme/spacing';
 import { Equipamento, tipoSigla } from '../types/models';
@@ -19,7 +20,14 @@ export function EquipCard({ item, onPress }: { item: Equipamento; onPress: () =>
           <View style={styles.siglaChip}>
             <Text style={styles.siglaText}>{tipoSigla(item.tipo)}</Text>
           </View>
-          <StatusBadge status={item.status} size="sm" />
+          {item.pendingSync ? (
+            <View style={[styles.pendingChip, { backgroundColor: withAlpha(colors.statusManutencao, 0.14), borderColor: withAlpha(colors.statusManutencao, 0.32) }]}>
+              <Feather name="cloud-off" size={11} color={colors.statusManutencao} />
+              <Text style={[styles.pendingText, { color: colors.statusManutencao }]}>Pendente</Text>
+            </View>
+          ) : (
+            <StatusBadge status={item.status} size="sm" />
+          )}
         </View>
 
         <Text style={styles.pat}>{item.serial}</Text>
@@ -64,6 +72,19 @@ const styles = StyleSheet.create({
     fontFamily: fonts.monoSemiBold,
     fontSize: 11,
     color: colors.accent,
+  },
+  pendingChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+  },
+  pendingText: {
+    fontFamily: fonts.monoMedium,
+    fontSize: 10,
   },
   pat: {
     fontFamily: fonts.mono,

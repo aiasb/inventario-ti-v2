@@ -95,6 +95,9 @@ export interface Equipamento {
   observacoes: string | null;
   createdAt: string; // ISO datetime
   updatedAt: string; // ISO datetime
+  /** Só existe localmente: true enquanto o registro foi criado/editado offline
+   * e ainda não foi confirmado pelo servidor (ver mobile/src/offline). */
+  pendingSync?: boolean;
 }
 
 export type TipoManutencao = 'Corretiva' | 'Preventiva';
@@ -114,6 +117,8 @@ export interface Manutencao {
   status: StatusManutencao;
   createdAt: string;
   updatedAt: string;
+  /** Só existe localmente — ver Equipamento.pendingSync. */
+  pendingSync?: boolean;
 }
 
 export interface TermoModelo {
@@ -143,6 +148,8 @@ export interface Termo {
   equipamentos: { id: number; serial: string; modelo: string; hostname: string | null; imei: string | null; tipo: string | null }[];
   createdAt: string;
   updatedAt: string;
+  /** Só existe localmente — ver Equipamento.pendingSync. */
+  pendingSync?: boolean;
 }
 
 export const STATUS_EQUIPAMENTO: StatusEquipamento[] = ['Ativo', 'Manutencao', 'Estoque', 'Baixado'];

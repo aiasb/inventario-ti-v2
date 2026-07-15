@@ -7,6 +7,7 @@ import swaggerUi from 'swagger-ui-express';
 import { config } from './config.js';
 import { swaggerSpec } from './swagger.js';
 import { notFoundHandler, errorHandler } from './middleware/errorHandler.js';
+import { idempotency } from './middleware/idempotency.js';
 
 import authRoutes from './routes/auth.routes.js';
 import equipamentosRoutes from './routes/equipamentos.routes.js';
@@ -42,6 +43,7 @@ export function createApp() {
   app.get('/api/docs.json', (req, res) => res.json(swaggerSpec));
 
   const v1 = express.Router();
+  v1.use(idempotency());
   v1.use('/auth', authRoutes);
   v1.use('/equipamentos', equipamentosRoutes);
   v1.use('/manutencoes', manutencoesRoutes);
