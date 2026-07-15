@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { Header } from '../components/Header';
@@ -10,6 +10,7 @@ import { colors, statusColor } from '../theme/colors';
 import { fonts } from '../theme/typography';
 import { spacing } from '../theme/spacing';
 import { useAppData } from '../context/AppDataContext';
+import { useRefreshControl } from '../hooks/useRefreshControl';
 import { ageInYears, formatAge } from '../utils/format';
 import { STATUS_EQUIPAMENTO, statusLabel } from '../types/models';
 import { TabParamList } from '../navigation/types';
@@ -19,6 +20,7 @@ const MONTH_LABELS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 's
 export function RelatoriosScreen() {
   const navigation = useNavigation<BottomTabNavigationProp<TabParamList>>();
   const { equipamentos, manutencoes, setores } = useAppData();
+  const { refreshing, onRefresh } = useRefreshControl();
 
   const porStatus = useMemo(() => {
     const map: Record<string, number> = {};
@@ -86,7 +88,11 @@ export function RelatoriosScreen() {
   return (
     <View style={styles.screen}>
       <Header title="Relatórios" />
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} colors={[colors.accent]} />}
+      >
         <SectionCard style={{ marginBottom: spacing.lg }}>
           <Text style={styles.valorLabel}>TOTAL DO PARQUE</Text>
           <View style={styles.valorRow}>

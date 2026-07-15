@@ -34,6 +34,10 @@ yarn-error.*
 # editor / OS
 .DS_Store
 Thumbs.db
+.idea/
 
 # ferramentas locais (Claude Code)
 .claude/
+
+# planilhas/dados de importação (dados internos sensíveis — não versionar)
+/imports/

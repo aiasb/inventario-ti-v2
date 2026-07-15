@@ -1,7 +1,15 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { EditarEquipamentoInput, NovaManutencaoInput, NovoEquipamentoInput, repository } from '../data/repository';
-import { Atividade, Equipamento, Manutencao, Responsavel, Setor, TipoEquipamento } from '../types/models';
+import { EditarEquipamentoInput, NovaManutencaoInput, NovoEquipamentoInput, NovoTermoInput, repository } from '../data/repository';
+import { Atividade, Equipamento, Manutencao, Responsavel, Setor, Termo, TermoModelo, TipoEquipamento } from '../types/models';
+import { warrantyInfo, WarrantyInfo } from '../utils/format';
+import { notifyGarantiasVencendo } from '../utils/notifications';
 import { useAuth } from './AuthContext';
+import { usePreferences } from './PreferencesContext';
+
+export interface GarantiaVencendo {
+  equipamento: Equipamento;
+  warranty: WarrantyInfo;
+}
 
 interface AppDataContextValue {
   ready: boolean;
@@ -10,13 +18,20 @@ interface AppDataContextValue {
   responsaveis: Responsavel[];
   setores: Setor[];
   tiposEquipamento: TipoEquipamento[];
+  termos: Termo[];
+  termoModelos: TermoModelo[];
   atividades: Atividade[];
+  garantiasVencendo: GarantiaVencendo[];
   refresh: () => Promise<void>;
   getEquipamento: (id: number) => Equipamento | undefined;
   getManutencoesDe: (equipamentoId: number) => Manutencao[];
   criarEquipamento: (input: NovoEquipamentoInput) => Promise<Equipamento>;
   editarEquipamento: (id: number, input: EditarEquipamentoInput) => Promise<Equipamento>;
   abrirOs: (input: NovaManutencaoInput) => Promise<Manutencao>;
+  alternarAssinaturaTermo: (id: number, assinado: boolean) => Promise<Termo>;
+  alternarDevolucaoTermo: (id: number, devolvido: boolean) => Promise<Termo>;
+  criarTermo: (input: NovoTermoInput) => Promise<Termo>;
+  excluirTermo: (id: number) => Promise<void>;
 }
 
 const AppDataContext = createContext<AppDataContextValue | null>(null);
@@ -51,26 +66,33 @@ function buildAtividades(equipamentos: Equipamento[], manutencoes: Manutencao[])
 
 export function AppDataProvider({ children }: { children: React.ReactNode }) {
   const { usuario } = useAuth();
+  const { preferences } = usePreferences();
   const [ready, setReady] = useState(false);
   const [equipamentos, setEquipamentos] = useState<Equipamento[]>([]);
   const [manutencoes, setManutencoes] = useState<Manutencao[]>([]);
   const [responsaveis, setResponsaveis] = useState<Responsavel[]>([]);
   const [setores, setSetores] = useState<Setor[]>([]);
   const [tiposEquipamento, setTiposEquipamento] = useState<TipoEquipamento[]>([]);
+  const [termos, setTermos] = useState<Termo[]>([]);
+  const [termoModelos, setTermoModelos] = useState<TermoModelo[]>([]);
 
   const refresh = useCallback(async () => {
-    const [eq, mn, resp, set, tipos] = await Promise.all([
+    const [eq, mn, resp, set, tipos, term, termMod] = await Promise.all([
       repository.listEquipamentos(),
       repository.listManutencoes(),
       repository.listResponsaveis(),
       repository.listSetores(),
       repository.listTiposEquipamento(),
+      repository.listTermos(),
+      repository.listTermoModelos(),
     ]);
     setEquipamentos(eq);
     setManutencoes(mn);
     setResponsaveis(resp);
     setSetores(set);
     setTiposEquipamento(tipos);
+    setTermos(term);
+    setTermoModelos(termMod);
   }, []);
 
   useEffect(() => {
@@ -81,6 +103,8 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       setResponsaveis([]);
       setSetores([]);
       setTiposEquipamento([]);
+      setTermos([]);
+      setTermoModelos([]);
       return;
     }
     (async () => {
@@ -117,6 +141,41 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     [refresh]
   );
 
+  const alternarAssinaturaTermo = useCallback(
+    async (id: number, assinado: boolean) => {
+      const updated = await repository.setTermoAssinatura(id, assinado);
+      await refresh();
+      return updated;
+    },
+    [refresh]
+  );
+
+  const criarTermo = useCallback(
+    async (input: NovoTermoInput) => {
+      const created = await repository.createTermo(input);
+      await refresh();
+      return created;
+    },
+    [refresh]
+  );
+
+  const alternarDevolucaoTermo = useCallback(
+    async (id: number, devolvido: boolean) => {
+      const updated = await repository.setTermoDevolucao(id, devolvido);
+      await refresh();
+      return updated;
+    },
+    [refresh]
+  );
+
+  const excluirTermo = useCallback(
+    async (id: number) => {
+      await repository.deleteTermo(id);
+      await refresh();
+    },
+    [refresh]
+  );
+
   const getEquipamento = useCallback((id: number) => equipamentos.find((e) => e.id === id), [equipamentos]);
 
   const getManutencoesDe = useCallback(
@@ -126,6 +185,26 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
 
   const atividades = useMemo(() => buildAtividades(equipamentos, manutencoes), [equipamentos, manutencoes]);
 
+  const garantiasVencendo = useMemo<GarantiaVencendo[]>(() => {
+    return equipamentos
+      .map((equipamento) => ({ equipamento, warranty: warrantyInfo(equipamento.dataAquisicao, equipamento.dataGarantia) }))
+      .filter(({ warranty }) => warranty.days !== null && warranty.days >= 0 && warranty.days <= 120)
+      .sort((a, b) => (a.warranty.days ?? 0) - (b.warranty.days ?? 0));
+  }, [equipamentos]);
+
+  useEffect(() => {
+    if (!preferences.alertasGarantia || !preferences.notificacoesPush) return;
+    if (garantiasVencendo.length === 0) return;
+    notifyGarantiasVencendo(
+      garantiasVencendo.map(({ equipamento, warranty }) => ({
+        id: equipamento.id,
+        serial: equipamento.serial,
+        modelo: equipamento.modelo,
+        dias: warranty.days ?? 0,
+      }))
+    );
+  }, [garantiasVencendo, preferences.alertasGarantia, preferences.notificacoesPush]);
+
   const value = useMemo<AppDataContextValue>(
     () => ({
       ready,
@@ -134,13 +213,20 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       responsaveis,
       setores,
       tiposEquipamento,
+      termos,
+      termoModelos,
       atividades,
+      garantiasVencendo,
       refresh,
       getEquipamento,
       getManutencoesDe,
       criarEquipamento,
       editarEquipamento,
       abrirOs,
+      alternarAssinaturaTermo,
+      alternarDevolucaoTermo,
+      criarTermo,
+      excluirTermo,
     }),
     [
       ready,
@@ -149,13 +235,20 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       responsaveis,
       setores,
       tiposEquipamento,
+      termos,
+      termoModelos,
       atividades,
+      garantiasVencendo,
       refresh,
       getEquipamento,
       getManutencoesDe,
       criarEquipamento,
       editarEquipamento,
       abrirOs,
+      alternarAssinaturaTermo,
+      alternarDevolucaoTermo,
+      criarTermo,
+      excluirTermo,
     ]
   );
 

@@ -39,16 +39,13 @@ export function Termos() {
   const modelos = useLookup('/termo-modelos');
   const responsaveis = useLookup('/responsaveis');
   const activeTab = TABS.find((t) => t.key === tab);
-  const { data, loading, reload } = useFetch('/termos', { limit: 100, sort: '-data', assinado: activeTab.assinado });
-  const termos = data?.data || [];
-
-  const { data: allData } = useFetch('/termos', { limit: 1 });
-  const { data: assinadoData } = useFetch('/termos', { limit: 1, assinado: true });
-  const { data: pendenteData } = useFetch('/termos', { limit: 1, assinado: false });
+  const { data, loading, reload } = useFetch('/termos', { limit: 200, sort: '-data' });
+  const termosTodos = data?.data || [];
+  const termos = activeTab.assinado === undefined ? termosTodos : termosTodos.filter((t) => t.assinado === activeTab.assinado);
   const counts = {
-    Todos: allData?.meta?.total ?? 0,
-    Assinado: assinadoData?.meta?.total ?? 0,
-    Pendente: pendenteData?.meta?.total ?? 0,
+    Todos: termosTodos.length,
+    Assinado: termosTodos.filter((t) => t.assinado).length,
+    Pendente: termosTodos.filter((t) => !t.assinado).length,
   };
 
   const { data: equipData } = useFetch('/equipamentos', { q: equipSearch, limit: 20 }, [equipSearch]);
@@ -153,9 +150,12 @@ export function Termos() {
             </div>
             <div className="text-muted" style={{ fontSize: 11 }}>entregue em {formatDate(t.data)}</div>
           </div>
-          <span className={`badge ${t.assinado ? 'badge-ativo' : 'badge-manutencao'}`}>
-            {t.assinado ? 'Assinado' : 'Pendente'}
-          </span>
+          <div className="flex gap-8" style={{ flexShrink: 0 }}>
+            <span className={`badge ${t.assinado ? 'badge-ativo' : 'badge-manutencao'}`}>
+              {t.assinado ? 'Assinado' : 'Pendente'}
+            </span>
+            {t.devolvido && <span className="badge badge-estoque">Devolvido</span>}
+          </div>
           <button className="btn btn-sm" onClick={(e) => { e.stopPropagation(); setViewingId(t.id); }}>
             Visualizar termo
           </button>
@@ -247,6 +247,8 @@ function TermoDrawer({ id, onClose, onPrint, onChanged }) {
   const { data: termo, loading, reload } = useFetch(`/termos/${id}`, {}, [id]);
   const { toast } = useToast();
   const [toggling, setToggling] = useState(false);
+  const [togglingDevolucao, setTogglingDevolucao] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [docxLoading, setDocxLoading] = useState(false);
   const [docxError, setDocxError] = useState(false);
   const [docxReady, setDocxReady] = useState(false);
@@ -313,9 +315,48 @@ function TermoDrawer({ id, onClose, onPrint, onChanged }) {
     }
   }
 
-  async function baixarDocx() {
+  async function toggleDevolvido() {
+    setTogglingDevolucao(true);
     try {
-      await api.download(`/termos/${termo.id}/documento`, `${termo.numero}.docx`);
+      await api.patch(`/termos/${termo.id}/devolucao`, { devolvido: !termo.devolvido });
+      toast(termo.devolvido ? 'Devolução desfeita.' : 'Termo marcado como devolvido.');
+      reload();
+      onChanged();
+    } catch (err) {
+      toast(err.message, 'error');
+    } finally {
+      setTogglingDevolucao(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (!window.confirm(`Excluir o termo ${termo.numero}? Essa ação não pode ser desfeita.`)) return;
+    setDeleting(true);
+    try {
+      await api.delete(`/termos/${termo.id}`);
+      toast('Termo excluído.');
+      onChanged();
+      onClose();
+    } catch (err) {
+      toast(err.message, 'error');
+      setDeleting(false);
+    }
+  }
+
+  async function visualizarPdf() {
+    try {
+      const blob = await api.getBlob(`/termos/${termo.id}/documento/pdf`);
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank');
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch (err) {
+      toast(err.message, 'error');
+    }
+  }
+
+  async function baixarPdf() {
+    try {
+      await api.download(`/termos/${termo.id}/documento/pdf`, `${termo.numero}.pdf`);
     } catch (err) {
       toast(err.message, 'error');
     }
@@ -338,6 +379,7 @@ function TermoDrawer({ id, onClose, onPrint, onChanged }) {
           <span className={`badge ${termo.assinado ? 'badge-ativo' : 'badge-manutencao'}`}>
             {termo.assinado ? 'Assinado' : 'Pendente'}
           </span>
+          {termo.devolvido && <span className="badge badge-estoque">Devolvido</span>}
         </div>
       }
       onClose={onClose}
@@ -347,6 +389,7 @@ function TermoDrawer({ id, onClose, onPrint, onChanged }) {
         <div className="detail-field"><div className="label-caps">Entregue em</div><div className="value">{formatDate(termo.data)}</div></div>
         <div className="detail-field"><div className="label-caps">Modelo do termo</div><div className="value">{termo.modelo?.nome || 'Padrão'}</div></div>
         <div className="detail-field"><div className="label-caps">Assinatura</div><div className="value">{termo.assinado ? formatDate(termo.dataAssinatura) : 'Pendente'}</div></div>
+        <div className="detail-field"><div className="label-caps">Devolução</div><div className="value">{termo.devolvido ? formatDate(termo.dataDevolucao) : 'Não devolvido'}</div></div>
         {termo.responsavel && (
           <div className="detail-field">
             <div className="label-caps">Responsável vinculado</div>
@@ -356,16 +399,23 @@ function TermoDrawer({ id, onClose, onPrint, onChanged }) {
       </div>
 
       <div className="flex gap-8 mb-16" style={{ flexWrap: 'wrap' }}>
+        <button className="btn btn-sm" onClick={visualizarPdf}>
+          <Icon name="print" size={13} /> Visualizar termo (PDF)
+        </button>
+        <button className="btn btn-sm" onClick={baixarPdf}>
+          <Icon name="download" size={13} /> Baixar termo (PDF)
+        </button>
         <button className="btn btn-sm" onClick={handlePrintClick}>
           <Icon name="print" size={13} /> Imprimir termo
         </button>
-        {termo.modelo?.temArquivo && (
-          <button className="btn btn-sm" onClick={baixarDocx}>
-            <Icon name="download" size={13} /> Baixar termo (.docx)
-          </button>
-        )}
         <button className="btn btn-sm" onClick={toggleAssinado} disabled={toggling}>
           {termo.assinado ? 'Marcar como pendente' : 'Marcar como assinado'}
+        </button>
+        <button className="btn btn-sm" onClick={toggleDevolvido} disabled={togglingDevolucao}>
+          {termo.devolvido ? 'Desfazer devolução' : 'Marcar como devolvido'}
+        </button>
+        <button className="btn btn-sm btn-danger" onClick={handleDelete} disabled={deleting}>
+          <Icon name="trash" size={13} /> Excluir termo
         </button>
       </div>
 

@@ -6,6 +6,8 @@ import {
   Perfil,
   Responsavel,
   Setor,
+  Termo,
+  TermoModelo,
   TipoEquipamento,
   UsuarioAdmin,
 } from '../types/models';
@@ -36,6 +38,15 @@ export interface NovaManutencaoInput {
   titulo: string;
   tipo: Manutencao['tipo'];
   tecnico?: string;
+}
+
+export interface NovoTermoInput {
+  equipamentoId: number;
+  colaborador: string;
+  cargo?: string;
+  responsavelId?: number | null;
+  modeloId?: number | null;
+  observacoes?: string | null;
 }
 
 function equipamentoBody(input: NovoEquipamentoInput) {
@@ -86,6 +97,41 @@ class RemoteRepository {
       tipo: input.tipo,
       tecnico: input.tecnico?.trim() || null,
     });
+  }
+
+  // ---- Termos ---------------------------------------------------------------
+
+  async listTermos(): Promise<Termo[]> {
+    const res = await api.get<Paginated<Termo>>(`/termos${qs({ limit: 200, sort: '-data' })}`);
+    return res.data;
+  }
+
+  async setTermoAssinatura(id: number, assinado: boolean): Promise<Termo> {
+    return api.patch<Termo>(`/termos/${id}/assinatura`, { assinado });
+  }
+
+  async setTermoDevolucao(id: number, devolvido: boolean): Promise<Termo> {
+    return api.patch<Termo>(`/termos/${id}/devolucao`, { devolvido });
+  }
+
+  async deleteTermo(id: number): Promise<void> {
+    await api.delete(`/termos/${id}`);
+  }
+
+  async createTermo(input: NovoTermoInput): Promise<Termo> {
+    return api.post<Termo>('/termos', {
+      colaborador: input.colaborador.trim(),
+      cargo: input.cargo?.trim() || null,
+      equipamentoIds: [input.equipamentoId],
+      responsavelId: input.responsavelId || null,
+      modeloId: input.modeloId || null,
+      observacoes: input.observacoes?.trim() || null,
+    });
+  }
+
+  async listTermoModelos(): Promise<TermoModelo[]> {
+    const res = await api.get<Paginated<TermoModelo>>(`/termo-modelos${qs({ limit: 200 })}`);
+    return res.data;
   }
 
   // ---- Responsáveis ------------------------------------------------------

@@ -9,6 +9,7 @@ import { colors } from './src/theme/colors';
 import { fontsToLoad } from './src/theme/typography';
 import { AuthProvider } from './src/context/AuthContext';
 import { AppDataProvider } from './src/context/AppDataContext';
+import { PreferencesProvider } from './src/context/PreferencesContext';
 import { ToastProvider } from './src/context/ToastContext';
 import { SheetProvider } from './src/context/SheetContext';
 import { RootNavigator } from './src/navigation/RootNavigator';
@@ -39,14 +40,16 @@ export default function App() {
       <StatusBar style="light" />
       <ToastProvider>
         <AuthProvider>
-          <AppDataProvider>
-            <SheetProvider>
-              <NavigationContainer theme={navigationTheme}>
-                <RootNavigator />
-                <EquipamentoSheet />
-              </NavigationContainer>
-            </SheetProvider>
-          </AppDataProvider>
+          <PreferencesProvider>
+            <AppDataProvider>
+              <SheetProvider>
+                <NavigationContainer theme={navigationTheme}>
+                  <RootNavigator />
+                  <EquipamentoSheet />
+                </NavigationContainer>
+              </SheetProvider>
+            </AppDataProvider>
+          </PreferencesProvider>
         </AuthProvider>
       </ToastProvider>
     </SafeAreaProvider>

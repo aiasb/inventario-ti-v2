@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { Alert, Modal, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
+import React, { useState } from 'react';
+import { Alert, Modal, Pressable, RefreshControl, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -12,7 +12,10 @@ import { spacing, radius } from '../theme/spacing';
 import { useAppData } from '../context/AppDataContext';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
-import { DEFAULT_PREFERENCES, loadPreferences, Preferences, savePreferences } from '../data/preferences';
+import { usePreferences } from '../context/PreferencesContext';
+import { useRefreshControl } from '../hooks/useRefreshControl';
+import { Preferences } from '../data/preferences';
+import { requestNotificationPermission } from '../utils/notifications';
 import { initials } from '../utils/format';
 import { RootStackParamList } from '../navigation/types';
 
@@ -23,17 +26,19 @@ export function ConfiguracoesScreen() {
   const { equipamentos } = useAppData();
   const { usuario, serverUrl, logout, podeVer } = useAuth();
   const { showToast } = useToast();
-  const [prefs, setPrefs] = useState<Preferences>(DEFAULT_PREFERENCES);
+  const { preferences: prefs, updatePreference } = usePreferences();
+  const { refreshing, onRefresh } = useRefreshControl();
   const [sobreVisible, setSobreVisible] = useState(false);
 
-  useEffect(() => {
-    loadPreferences().then(setPrefs);
-  }, []);
-
-  function updatePref<K extends keyof Preferences>(key: K, value: Preferences[K]) {
-    const next = { ...prefs, [key]: value };
-    setPrefs(next);
-    savePreferences(next);
+  async function updatePref<K extends keyof Preferences>(key: K, value: Preferences[K]) {
+    if (key === 'notificacoesPush' && value === true) {
+      const granted = await requestNotificationPermission();
+      if (!granted) {
+        showToast('Permita as notificações nas configurações do Android para ativar.');
+        return;
+      }
+    }
+    updatePreference(key, value);
   }
 
   async function handleExportCsv() {
@@ -64,7 +69,11 @@ export function ConfiguracoesScreen() {
   return (
     <View style={styles.screen}>
       <Header title="Configurações" />
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} colors={[colors.accent]} />}
+      >
         <SectionCard style={{ marginBottom: spacing.lg }}>
           <View style={styles.profileRow}>
             <View style={styles.avatar}>

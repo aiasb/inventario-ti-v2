@@ -523,6 +523,31 @@ input, select, textarea {
   color: var(--accent);
 }
 
+.stat-label {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
+.stat-value {
+  font-family: var(--font-title);
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.kpi-delta {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  display: inline-block;
+}
+.kpi-delta.up { color: var(--accent); }
+.kpi-delta.down { color: var(--danger); }
+.kpi-delta.flat { color: var(--text-muted); }
+
 /* ---------- Filters bar ---------- */
 
 .filters-bar {

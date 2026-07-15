@@ -7,6 +7,8 @@ import { parsePagination, buildSort, paginatedResponse } from '../utils/paginati
 import { requireAuth, requirePermission } from '../middleware/auth.js';
 import { formatDateBR } from '../utils/formatDate.js';
 import { renderDocxTemplate, renderDocxTemplateToHtml } from '../utils/docx.js';
+import { renderTermoPdf } from '../utils/pdf.js';
+import { convertDocxBufferToPdf } from '../utils/libreoffice.js';
 
 const router = Router();
 
@@ -30,6 +32,8 @@ async function mapTermo(row) {
     observacoes: row.observacoes,
     assinado: row.assinado,
     dataAssinatura: row.data_assinatura,
+    devolvido: row.devolvido,
+    dataDevolucao: row.data_devolucao,
     modelo: row.modelo_id
       ? { id: row.modelo_id, nome: row.modelo_nome, texto: row.modelo_texto, temArquivo: !!row.modelo_arquivo_path }
       : null,
@@ -179,7 +183,7 @@ router.put(
       const fields = {
         colaborador: 'colaborador', cargo: 'cargo', data: 'data', observacoes: 'observacoes',
         modeloId: 'modelo_id', assinado: 'assinado', dataAssinatura: 'data_assinatura',
-        responsavelId: 'responsavel_id',
+        responsavelId: 'responsavel_id', devolvido: 'devolvido', dataDevolucao: 'data_devolucao',
       };
       const sets = [];
       const params = [];
@@ -214,18 +218,7 @@ router.put(
   })
 );
 
-async function loadTermoParaDocumento(id) {
-  const { rows } = await query(`${BASE_SELECT} WHERE t.id = $1 AND t.deleted_at IS NULL`, [id]);
-  const row = rows[0];
-  if (!row) throw notFound('Termo');
-  if (!row.modelo_arquivo_path) {
-    throw badRequest('Este termo não está vinculado a um modelo com arquivo .docx enviado.');
-  }
-  if (!fs.existsSync(row.modelo_arquivo_path)) {
-    throw notFound('Arquivo do modelo');
-  }
-
-  const termo = await mapTermo(row);
+function buildTermoTemplateData(termo) {
   const seriais = termo.equipamentos.map((e) => e.serial).join(' + ');
   const modelosEquip = termo.equipamentos.map((e) => e.modelo).join(' + ');
   const imeis = termo.equipamentos.map((e) => e.imei).filter(Boolean).join(' + ');
@@ -233,7 +226,7 @@ async function loadTermoParaDocumento(id) {
     .map((e) => `${e.modelo} (${e.serial})`)
     .join('\n');
 
-  const data = {
+  return {
     numero: termo.numero,
     nome: termo.colaborador,
     cargo: termo.cargo || '',
@@ -249,7 +242,21 @@ async function loadTermoParaDocumento(id) {
     modelo: modelosEquip,
     equipamentos: listaEquipamentos,
   };
+}
 
+async function loadTermoParaDocumento(id) {
+  const { rows } = await query(`${BASE_SELECT} WHERE t.id = $1 AND t.deleted_at IS NULL`, [id]);
+  const row = rows[0];
+  if (!row) throw notFound('Termo');
+  if (!row.modelo_arquivo_path) {
+    throw badRequest('Este termo não está vinculado a um modelo com arquivo .docx enviado.');
+  }
+  if (!fs.existsSync(row.modelo_arquivo_path)) {
+    throw notFound('Arquivo do modelo');
+  }
+
+  const termo = await mapTermo(row);
+  const data = buildTermoTemplateData(termo);
   return { termo, templatePath: row.modelo_arquivo_path, data };
 }
 
@@ -304,6 +311,42 @@ router.get(
 
 /**
  * @openapi
+ * /termos/{id}/documento/pdf:
+ *   get:
+ *     tags: [Termos]
+ *     summary: Gera o termo em PDF — a partir do modelo .docx vinculado (preservando a formatação original), quando houver; caso contrário, um PDF simples com os dados cadastrados
+ *     security: [{ bearerAuth: [] }]
+ *     responses:
+ *       200: { description: Arquivo PDF gerado }
+ *       404: { description: Termo não encontrado }
+ */
+router.get(
+  '/:id/documento/pdf',
+  requireAuth,
+  requirePermission('termos', 'ver'),
+  asyncHandler(async (req, res) => {
+    const { rows } = await query(`${BASE_SELECT} WHERE t.id = $1 AND t.deleted_at IS NULL`, [req.params.id]);
+    if (!rows[0]) throw notFound('Termo');
+    const row = rows[0];
+    const termo = await mapTermo(row);
+
+    let buffer;
+    if (row.modelo_arquivo_path && fs.existsSync(row.modelo_arquivo_path)) {
+      const data = buildTermoTemplateData(termo);
+      const docxBuffer = renderDocxTemplate(row.modelo_arquivo_path, data);
+      buffer = await convertDocxBufferToPdf(docxBuffer);
+    } else {
+      buffer = await renderTermoPdf(termo);
+    }
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="${termo.numero}.pdf"`);
+    res.send(buffer);
+  })
+);
+
+/**
+ * @openapi
  * /termos/{id}/assinatura:
  *   patch:
  *     tags: [Termos]
@@ -323,6 +366,34 @@ router.patch(
       `UPDATE termos SET assinado = $1, data_assinatura = CASE WHEN $1 THEN COALESCE(data_assinatura, CURRENT_DATE) ELSE NULL END
        WHERE id = $2 AND deleted_at IS NULL`,
       [assinado, req.params.id]
+    );
+    if (result.rowCount === 0) throw notFound('Termo');
+    const { rows } = await query(`${BASE_SELECT} WHERE t.id = $1`, [req.params.id]);
+    res.json(await mapTermo(rows[0]));
+  })
+);
+
+/**
+ * @openapi
+ * /termos/{id}/devolucao:
+ *   patch:
+ *     tags: [Termos]
+ *     summary: Marca ou desmarca a devolução dos equipamentos do termo, encerrando a responsabilidade
+ *     security: [{ bearerAuth: [] }]
+ *     responses:
+ *       200: { description: Termo atualizado }
+ */
+router.patch(
+  '/:id/devolucao',
+  requireAuth,
+  requirePermission('termos', 'editar'),
+  asyncHandler(async (req, res) => {
+    const { devolvido } = req.body;
+    if (typeof devolvido !== 'boolean') throw badRequest('Informe "devolvido" como booleano.');
+    const result = await query(
+      `UPDATE termos SET devolvido = $1, data_devolucao = CASE WHEN $1 THEN COALESCE(data_devolucao, CURRENT_DATE) ELSE NULL END
+       WHERE id = $2 AND deleted_at IS NULL`,
+      [devolvido, req.params.id]
     );
     if (result.rowCount === 0) throw notFound('Termo');
     const { rows } = await query(`${BASE_SELECT} WHERE t.id = $1`, [req.params.id]);

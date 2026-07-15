@@ -4,6 +4,8 @@ import { TabParamList } from './types';
 import { CustomTabBar } from './CustomTabBar';
 import { InicioScreen } from '../screens/InicioScreen';
 import { ItensScreen } from '../screens/ItensScreen';
+import { ManutencoesScreen } from '../screens/ManutencoesScreen';
+import { TermosScreen } from '../screens/TermosScreen';
 import { RelatoriosScreen } from '../screens/RelatoriosScreen';
 import { ConfiguracoesScreen } from '../screens/ConfiguracoesScreen';
 
@@ -17,6 +19,8 @@ export function TabNavigator() {
     >
       <Tab.Screen name="Inicio" component={InicioScreen} />
       <Tab.Screen name="Itens" component={ItensScreen} />
+      <Tab.Screen name="Manutencoes" component={ManutencoesScreen} />
+      <Tab.Screen name="Termos" component={TermosScreen} />
       <Tab.Screen name="Relatorios" component={RelatoriosScreen} />
       <Tab.Screen name="Config" component={ConfiguracoesScreen} />
     </Tab.Navigator>

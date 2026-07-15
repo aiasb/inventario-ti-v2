@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { FlatList, Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Feather } from '@expo/vector-icons';
@@ -10,6 +10,7 @@ import { colors } from '../theme/colors';
 import { fonts } from '../theme/typography';
 import { spacing } from '../theme/spacing';
 import { useAppData } from '../context/AppDataContext';
+import { useRefreshControl } from '../hooks/useRefreshControl';
 import { StatusEquipamento } from '../types/models';
 import { RootStackParamList } from '../navigation/types';
 
@@ -29,6 +30,7 @@ export function ItensScreen() {
   const navigation = useNavigation<Nav>();
   const route = useRoute();
   const { equipamentos } = useAppData();
+  const { refreshing, onRefresh } = useRefreshControl();
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<Filter>('Todos');
 
@@ -111,6 +113,7 @@ export function ItensScreen() {
         keyExtractor={(item) => String(item.id)}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} colors={[colors.accent]} />}
         renderItem={({ item }) => (
           <EquipCard item={item} onPress={() => navigation.navigate('Detalhe', { id: item.id })} />
         )}

@@ -12,6 +12,8 @@ import { useAuth } from '../context/AuthContext';
 const TAB_ICON: Record<string, keyof typeof Feather.glyphMap> = {
   Inicio: 'home',
   Itens: 'grid',
+  Manutencoes: 'tool',
+  Termos: 'file-text',
   Relatorios: 'bar-chart-2',
   Config: 'settings',
 };
@@ -19,6 +21,8 @@ const TAB_ICON: Record<string, keyof typeof Feather.glyphMap> = {
 const TAB_LABEL: Record<string, string> = {
   Inicio: 'Início',
   Itens: 'Itens',
+  Manutencoes: 'Manutenções',
+  Termos: 'Termos',
   Relatorios: 'Relatórios',
   Config: 'Config',
 };
@@ -28,8 +32,9 @@ export function CustomTabBar({ state, navigation }: BottomTabBarProps) {
   const { openNovoEquipamento } = useSheet();
   const { podeCriar } = useAuth();
 
-  const leftRoutes = state.routes.slice(0, 2);
-  const rightRoutes = state.routes.slice(2, 4);
+  const half = Math.ceil(state.routes.length / 2);
+  const leftRoutes = state.routes.slice(0, half);
+  const rightRoutes = state.routes.slice(half);
 
   const renderTab = (route: (typeof state.routes)[number]) => {
     const index = state.routes.findIndex((r) => r.key === route.key);
@@ -46,10 +51,17 @@ export function CustomTabBar({ state, navigation }: BottomTabBarProps) {
       <Pressable key={route.key} onPress={onPress} style={styles.tabButton}>
         <Feather
           name={TAB_ICON[route.name]}
-          size={20}
+          size={18}
           color={isFocused ? colors.accent : colors.textMuted}
         />
-        <Text style={[styles.tabLabel, isFocused && styles.tabLabelActive]}>{TAB_LABEL[route.name]}</Text>
+        <Text
+          style={[styles.tabLabel, isFocused && styles.tabLabelActive]}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.75}
+        >
+          {TAB_LABEL[route.name]}
+        </Text>
       </Pressable>
     );
   };
@@ -88,10 +100,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 3,
     minHeight: 44,
+    paddingHorizontal: 2,
   },
   tabLabel: {
     fontFamily: fonts.bodyMedium,
-    fontSize: 10.5,
+    fontSize: 9.5,
     color: colors.textMuted,
   },
   tabLabelActive: {

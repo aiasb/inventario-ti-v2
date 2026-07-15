@@ -74,6 +74,10 @@ export function hasAccessToken(): boolean {
   return !!accessToken;
 }
 
+export function getAccessToken(): string | null {
+  return accessToken;
+}
+
 export function setUnauthorizedHandler(fn: (() => void) | null): void {
   onUnauthorized = fn;
 }

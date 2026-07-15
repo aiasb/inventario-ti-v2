@@ -4,9 +4,28 @@ import { useFetch } from '../hooks/useApi.js';
 import { FiltersBar } from '../components/FiltersBar.jsx';
 import { Sparkline } from '../components/Sparkline.jsx';
 import { StatusBadge } from '../components/StatusBadge.jsx';
+import { ColumnChart } from '../components/ColumnChart.jsx';
 import { ageInYears, formatAge, formatDate, formatDateTime, warrantyStatus } from '../utils/format.js';
 
-const VIEW_TABS = ['Visão geral', 'Por tipo', 'Por status', 'Idade por setor'];
+const VIEW_TABS = ['Visão geral', 'Por tipo', 'Por status', 'Por setor', 'Idade por setor'];
+const MONTH_LABELS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+
+function monthKey(d) {
+  return `${d.getFullYear()}-${d.getMonth()}`;
+}
+
+function delta(atual, anterior) {
+  if (anterior === 0) return atual === 0 ? { pct: 0, dir: 'flat' } : { pct: null, dir: 'up' };
+  const pct = Math.round(((atual - anterior) / anterior) * 100);
+  return { pct, dir: pct > 0 ? 'up' : pct < 0 ? 'down' : 'flat' };
+}
+
+function DeltaBadge({ atual, anterior }) {
+  const d = delta(atual, anterior);
+  const arrow = d.dir === 'up' ? '↑' : d.dir === 'down' ? '↓' : '→';
+  const texto = d.pct === null ? 'novo' : `${d.pct > 0 ? '+' : ''}${d.pct}%`;
+  return <span className={`kpi-delta ${d.dir}`}>{arrow} {texto} vs. mês anterior</span>;
+}
 
 function BarList({ data, colorVar = '--accent' }) {
   const max = Math.max(...data.map((d) => d.count), 1);
@@ -92,16 +111,38 @@ function monthBuckets(items, dateFn, months = 6) {
   return buckets.map((b) => b.count);
 }
 
+// Mesma ideia do monthBuckets, mas olhando para frente — usado no sparkline de
+// "Garantias a vencer", que é uma métrica prospectiva (não tem sentido montar
+// uma série de meses passados para ela).
+function futureMonthBuckets(items, dateFn, months = 6) {
+  const now = new Date();
+  const buckets = [];
+  for (let i = 0; i < months; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+    buckets.push({ key: `${d.getFullYear()}-${d.getMonth()}`, count: 0 });
+  }
+  for (const item of items) {
+    const raw = dateFn(item);
+    if (!raw) continue;
+    const d = new Date(raw);
+    const key = `${d.getFullYear()}-${d.getMonth()}`;
+    const bucket = buckets.find((b) => b.key === key);
+    if (bucket) bucket.count += 1;
+  }
+  return buckets.map((b) => b.count);
+}
+
 export function Dashboard() {
   usePageHeader({ breadcrumb: 'Operação / Dashboard', title: 'Dashboard' });
   const [filters, setFilters] = useState({});
   const [tab, setTab] = useState('Visão geral');
 
   const { data: equipData, loading } = useFetch('/equipamentos', { ...filters, limit: 500 });
-  const { data: manutData } = useFetch('/manutencoes', { limit: 8, sort: '-data' });
+  const { data: manutData } = useFetch('/manutencoes', { limit: 300, sort: '-data' });
 
   const equipamentos = equipData?.data || [];
   const manutencoes = manutData?.data || [];
+  const ultimasOs = useMemo(() => manutencoes.slice(0, 8), [manutencoes]);
 
   const kpis = useMemo(() => {
     const total = equipamentos.length;
@@ -127,6 +168,52 @@ export function Dashboard() {
   }, [equipamentos]);
 
   const idadePorSetor = useMemo(() => groupAverageAge(equipamentos, (e) => e.setor?.nome), [equipamentos]);
+  const porSetorQtd = useMemo(() => groupCount(equipamentos, (e) => e.setor?.nome), [equipamentos]);
+
+  const manutencoesPorMes = useMemo(() => {
+    const now = new Date();
+    const buckets = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      buckets.push({ label: MONTH_LABELS[d.getMonth()], key: monthKey(d), corretiva: 0, preventiva: 0 });
+    }
+    for (const m of manutencoes) {
+      if (!m.data) continue;
+      const bucket = buckets.find((b) => b.key === monthKey(new Date(m.data)));
+      if (!bucket) continue;
+      if (m.tipo === 'Corretiva') bucket.corretiva += 1;
+      else bucket.preventiva += 1;
+    }
+    return buckets;
+  }, [manutencoes]);
+
+  const comparacaoMensal = useMemo(() => {
+    const now = new Date();
+    const chaveAtual = monthKey(now);
+    const chaveAnterior = monthKey(new Date(now.getFullYear(), now.getMonth() - 1, 1));
+
+    function contarNoMes(items, dateFn, chave) {
+      return items.filter((item) => {
+        const raw = dateFn(item);
+        return raw ? monthKey(new Date(raw)) === chave : false;
+      }).length;
+    }
+
+    return {
+      equipamentos: {
+        atual: contarNoMes(equipamentos, (e) => e.createdAt, chaveAtual),
+        anterior: contarNoMes(equipamentos, (e) => e.createdAt, chaveAnterior),
+      },
+      manutencoes: {
+        atual: contarNoMes(manutencoes, (m) => m.data, chaveAtual),
+        anterior: contarNoMes(manutencoes, (m) => m.data, chaveAnterior),
+      },
+      garantias: {
+        atual: contarNoMes(equipamentos, (e) => e.dataGarantia, chaveAtual),
+        anterior: contarNoMes(equipamentos, (e) => e.dataGarantia, chaveAnterior),
+      },
+    };
+  }, [equipamentos, manutencoes]);
 
   const garantiasProximas = useMemo(() => {
     return equipamentos
@@ -142,6 +229,7 @@ export function Dashboard() {
     return buckets.map((v) => (acc += v));
   }, [equipamentos]);
   const sparkManut = useMemo(() => monthBuckets(manutencoes, (m) => m.data), [manutencoes]);
+  const sparkGarantias = useMemo(() => futureMonthBuckets(equipamentos, (e) => e.dataGarantia), [equipamentos]);
 
   return (
     <div>
@@ -166,20 +254,42 @@ export function Dashboard() {
           <div className="kpi-label">Garantias a vencer (120d)</div>
           <div className="kpi-value-row">
             <span className="kpi-value">{kpis.garantiasVencendo}</span>
-            <Sparkline data={[2, 3, 1, 4, kpis.garantiasVencendo, kpis.garantiasVencendo]} color="#d95c4a" />
+            <Sparkline data={sparkGarantias} color="#d95c4a" />
           </div>
         </div>
         <div className="kpi-card accent">
           <div className="kpi-label">Em estoque</div>
           <div className="kpi-value-row">
             <span className="kpi-value">{kpis.emEstoque}</span>
-            <Sparkline data={[kpis.emEstoque, kpis.emEstoque, kpis.emEstoque - 1, kpis.emEstoque]} />
           </div>
         </div>
         <div className="kpi-card">
           <div className="kpi-label">Idade média do parque</div>
           <div className="kpi-value-row">
             <span className="kpi-value" style={{ fontSize: 22 }}>{formatAge(idadeMedia)}</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="panel" style={{ marginBottom: 20 }}>
+        <div className="panel-header">
+          <h3>Comparação com o mês anterior</h3>
+        </div>
+        <div className="panel-body" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 18 }}>
+          <div>
+            <div className="stat-label">Equipamentos cadastrados</div>
+            <div className="stat-value">{comparacaoMensal.equipamentos.atual}</div>
+            <DeltaBadge atual={comparacaoMensal.equipamentos.atual} anterior={comparacaoMensal.equipamentos.anterior} />
+          </div>
+          <div>
+            <div className="stat-label">Manutenções abertas</div>
+            <div className="stat-value">{comparacaoMensal.manutencoes.atual}</div>
+            <DeltaBadge atual={comparacaoMensal.manutencoes.atual} anterior={comparacaoMensal.manutencoes.anterior} />
+          </div>
+          <div>
+            <div className="stat-label">Garantias vencendo no mês</div>
+            <div className="stat-value">{comparacaoMensal.garantias.atual}</div>
+            <DeltaBadge atual={comparacaoMensal.garantias.atual} anterior={comparacaoMensal.garantias.anterior} />
           </div>
         </div>
       </div>
@@ -195,7 +305,7 @@ export function Dashboard() {
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: tab === 'Visão geral' ? 'repeat(3, 1fr)' : '1fr',
+          gridTemplateColumns: tab === 'Visão geral' ? 'repeat(auto-fit, minmax(260px, 1fr))' : '1fr',
           gap: 14,
           marginBottom: 20,
         }}
@@ -217,6 +327,16 @@ export function Dashboard() {
             </div>
             <div className="panel-body">
               <BarList data={porStatus} colorVar="--danger" />
+            </div>
+          </div>
+        )}
+        {(tab === 'Visão geral' || tab === 'Por setor') && (
+          <div className="panel">
+            <div className="panel-header">
+              <h3>Distribuição por setor</h3>
+            </div>
+            <div className="panel-body">
+              <BarList data={porSetorQtd} colorVar="--accent" />
             </div>
           </div>
         )}
@@ -262,12 +382,12 @@ export function Dashboard() {
             <h3>Últimas ordens de serviço</h3>
           </div>
           <div className="panel-body">
-            {manutencoes.length === 0 && (
+            {ultimasOs.length === 0 && (
               <div className="empty-state">
                 <p>Nenhuma ordem de serviço registrada.</p>
               </div>
             )}
-            {manutencoes.map((m) => (
+            {ultimasOs.map((m) => (
               <div key={m.id} style={{ padding: '9px 0', borderBottom: '1px solid var(--border-soft)' }}>
                 <div className="flex justify-between items-center">
                   <span className="mono" style={{ fontSize: 12, color: 'var(--accent)' }}>{m.os}</span>
@@ -280,6 +400,21 @@ export function Dashboard() {
               </div>
             ))}
           </div>
+        </div>
+      </div>
+
+      <div className="panel" style={{ marginTop: 14 }}>
+        <div className="panel-header">
+          <h3>Manutenções por mês</h3>
+        </div>
+        <div className="panel-body">
+          <ColumnChart
+            data={manutencoesPorMes}
+            series={[
+              { key: 'corretiva', label: 'Corretivas', color: 'var(--accent)' },
+              { key: 'preventiva', label: 'Preventivas', color: '#6b83e8' },
+            ]}
+          />
         </div>
       </div>
 

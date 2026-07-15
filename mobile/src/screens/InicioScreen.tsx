@@ -1,5 +1,5 @@
-import React, { useMemo } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React from 'react';
+import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
@@ -12,7 +12,8 @@ import { colors } from '../theme/colors';
 import { fonts } from '../theme/typography';
 import { spacing } from '../theme/spacing';
 import { useAppData } from '../context/AppDataContext';
-import { warrantyInfo } from '../utils/format';
+import { usePreferences } from '../context/PreferencesContext';
+import { useRefreshControl } from '../hooks/useRefreshControl';
 import { RootStackParamList, TabParamList } from '../navigation/types';
 
 type Nav = CompositeNavigationProp<
@@ -22,15 +23,12 @@ type Nav = CompositeNavigationProp<
 
 export function InicioScreen() {
   const navigation = useNavigation<Nav>();
-  const { equipamentos, atividades, ready } = useAppData();
+  const { equipamentos, atividades, garantiasVencendo, ready } = useAppData();
+  const { preferences } = usePreferences();
+  const { refreshing, onRefresh } = useRefreshControl();
 
-  const garantiasVencendo = useMemo(() => {
-    return equipamentos
-      .map((e) => ({ e, w: warrantyInfo(e.dataAquisicao, e.dataGarantia) }))
-      .filter(({ w }) => w.days !== null && w.days >= 0 && w.days <= 120)
-      .sort((a, b) => (a.w.days ?? 0) - (b.w.days ?? 0));
-  }, [equipamentos]);
-
+  const alertasGarantiaAtivos = preferences.alertasGarantia;
+  const garantiasParaExibir = alertasGarantiaAtivos ? garantiasVencendo : [];
   const emManutencao = equipamentos.filter((e) => e.status === 'Manutencao').length;
 
   if (!ready) {
@@ -39,8 +37,12 @@ export function InicioScreen() {
 
   return (
     <View style={styles.screen}>
-      <Header title="Visão geral" notificationCount={garantiasVencendo.length} />
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <Header title="Visão geral" />
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} colors={[colors.accent]} />}
+      >
         <View style={styles.kpiRow}>
           <KpiCard
             icon="server"
@@ -59,7 +61,7 @@ export function InicioScreen() {
           <KpiCard
             icon="pie-chart"
             iconColor={colors.statusEstoque}
-            value={garantiasVencendo.length}
+            value={garantiasParaExibir.length}
             label="Garantias"
             onPress={() => navigation.navigate('Relatorios')}
           />
@@ -68,35 +70,38 @@ export function InicioScreen() {
         <SectionCard
           title="Garantias vencendo"
           right={
-            garantiasVencendo.length > 0 ? (
+            garantiasParaExibir.length > 0 ? (
               <View style={styles.pill}>
-                <Text style={styles.pillText}>{garantiasVencendo.length} em 120 dias</Text>
+                <Text style={styles.pillText}>{garantiasParaExibir.length} em 120 dias</Text>
               </View>
             ) : undefined
           }
           style={{ marginBottom: spacing.lg }}
         >
-          {garantiasVencendo.length === 0 && (
+          {!alertasGarantiaAtivos && (
+            <Text style={styles.emptyText}>Alertas de garantia estão desativados nas Configurações.</Text>
+          )}
+          {alertasGarantiaAtivos && garantiasParaExibir.length === 0 && (
             <Text style={styles.emptyText}>Nenhuma garantia vencendo nos próximos 120 dias.</Text>
           )}
-          {garantiasVencendo.slice(0, 6).map(({ e, w }, idx) => (
+          {garantiasParaExibir.slice(0, 6).map(({ equipamento, warranty }, idx) => (
             <Pressable
-              key={e.id}
-              style={[styles.warrantyRow, idx < Math.min(garantiasVencendo.length, 6) - 1 && styles.divider]}
-              onPress={() => navigation.navigate('Detalhe', { id: e.id })}
+              key={equipamento.id}
+              style={[styles.warrantyRow, idx < Math.min(garantiasParaExibir.length, 6) - 1 && styles.divider]}
+              onPress={() => navigation.navigate('Detalhe', { id: equipamento.id })}
             >
               <View style={styles.warrantyLeft}>
-                <Text style={styles.warrantyPat}>{e.serial}</Text>
-                <Text style={styles.warrantyModelo} numberOfLines={1}>{e.modelo}</Text>
+                <Text style={styles.warrantyPat}>{equipamento.serial}</Text>
+                <Text style={styles.warrantyModelo} numberOfLines={1}>{equipamento.modelo}</Text>
               </View>
               <View
                 style={[
                   styles.daysBadge,
-                  { backgroundColor: w.tone === 'expired' ? colors.borderSoft : 'rgba(224,180,92,0.14)' },
+                  { backgroundColor: warranty.tone === 'expired' ? colors.borderSoft : 'rgba(224,180,92,0.14)' },
                 ]}
               >
-                <Text style={[styles.daysText, { color: w.tone === 'expired' ? colors.textMuted : colors.statusManutencao }]}>
-                  {w.days}d
+                <Text style={[styles.daysText, { color: warranty.tone === 'expired' ? colors.textMuted : colors.statusManutencao }]}>
+                  {warranty.days}d
                 </Text>
               </View>
             </Pressable>

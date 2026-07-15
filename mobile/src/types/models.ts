@@ -116,6 +116,35 @@ export interface Manutencao {
   updatedAt: string;
 }
 
+export interface TermoModelo {
+  id: number;
+  nome: string;
+  texto: string | null;
+  arquivoNome: string | null;
+  temArquivo: boolean;
+  ativo: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Termo {
+  id: number;
+  numero: string;
+  colaborador: string;
+  cargo: string | null;
+  data: string; // ISO date
+  observacoes: string | null;
+  assinado: boolean;
+  dataAssinatura: string | null;
+  devolvido: boolean;
+  dataDevolucao: string | null;
+  modelo: { id: number; nome: string; texto: string | null; temArquivo: boolean } | null;
+  responsavel: { id: number; nome: string; cpf: string | null; matricula: string | null; setor: string | null } | null;
+  equipamentos: { id: number; serial: string; modelo: string; hostname: string | null; imei: string | null; tipo: string | null }[];
+  createdAt: string;
+  updatedAt: string;
+}
+
 export const STATUS_EQUIPAMENTO: StatusEquipamento[] = ['Ativo', 'Manutencao', 'Estoque', 'Baixado'];
 
 export const STATUS_MANUTENCAO: StatusManutencao[] = ['Aberta', 'Em andamento', 'Concluida'];

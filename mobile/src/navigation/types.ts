@@ -3,6 +3,8 @@ import { StatusEquipamento } from '../types/models';
 export type TabParamList = {
   Inicio: undefined;
   Itens: { statusFilter?: StatusEquipamento | 'Todos' } | undefined;
+  Manutencoes: undefined;
+  Termos: undefined;
   Relatorios: undefined;
   Config: undefined;
 };

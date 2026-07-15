@@ -10,10 +10,10 @@ import { colors } from '../theme/colors';
 import { fonts } from '../theme/typography';
 import { radius, spacing, touchTarget } from '../theme/spacing';
 import { useAppData } from '../context/AppDataContext';
-import { useToast } from '../context/ToastContext';
 import { formatDate, warrantyInfo } from '../utils/format';
 import { RootStackParamList } from '../navigation/types';
 import { NovaOsSheet } from '../sheets/NovaOsSheet';
+import { NovoTermoSheet } from '../sheets/NovoTermoSheet';
 import { Manutencao, statusManutencaoLabel } from '../types/models';
 import { useAuth } from '../context/AuthContext';
 import { useSheet } from '../context/SheetContext';
@@ -28,8 +28,8 @@ export function DetalheScreen() {
   const { getEquipamento, getManutencoesDe } = useAppData();
   const { podeCriar, podeEditar } = useAuth();
   const { openEditarEquipamento } = useSheet();
-  const { showToast } = useToast();
   const [osSheetVisible, setOsSheetVisible] = useState(false);
+  const [termoSheetVisible, setTermoSheetVisible] = useState(false);
 
   const equipamento = getEquipamento(route.params.id);
 
@@ -125,12 +125,11 @@ export function DetalheScreen() {
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + 12 }]}>
-        <Pressable
-          style={styles.secondaryBtn}
-          onPress={() => showToast('Geração de termos chega em breve.')}
-        >
-          <Text style={styles.secondaryText}>Gerar termo</Text>
-        </Pressable>
+        {podeCriar('termos') && (
+          <Pressable style={styles.secondaryBtn} onPress={() => setTermoSheetVisible(true)}>
+            <Text style={styles.secondaryText}>Gerar termo</Text>
+          </Pressable>
+        )}
         {podeCriar('manutencoes') && (
           <Pressable style={styles.primaryBtn} onPress={() => setOsSheetVisible(true)}>
             <Text style={styles.primaryText}>Abrir OS</Text>
@@ -139,6 +138,7 @@ export function DetalheScreen() {
       </View>
 
       <NovaOsSheet visible={osSheetVisible} onClose={() => setOsSheetVisible(false)} equipamento={equipamento} />
+      <NovoTermoSheet visible={termoSheetVisible} onClose={() => setTermoSheetVisible(false)} equipamento={equipamento} />
     </View>
   );
 }

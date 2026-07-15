@@ -1,19 +1,31 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Feather } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import { fonts } from '../theme/typography';
 import { radius, spacing, touchTarget } from '../theme/spacing';
+import { useAppData } from '../context/AppDataContext';
+import { usePreferences } from '../context/PreferencesContext';
+import { RootStackParamList } from '../navigation/types';
+import { NotificacoesPanel } from './NotificacoesPanel';
 
 interface HeaderProps {
   title: string;
-  notificationCount?: number;
-  onBellPress?: () => void;
 }
 
-export function Header({ title, notificationCount = 0, onBellPress }: HeaderProps) {
+type Nav = NativeStackNavigationProp<RootStackParamList>;
+
+export function Header({ title }: HeaderProps) {
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation<Nav>();
+  const { garantiasVencendo } = useAppData();
+  const { preferences } = usePreferences();
+  const [panelVisible, setPanelVisible] = useState(false);
+
+  const notificationCount = preferences.alertasGarantia ? garantiasVencendo.length : 0;
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + 10 }]}>
@@ -25,7 +37,7 @@ export function Header({ title, notificationCount = 0, onBellPress }: HeaderProp
         </View>
       </View>
 
-      <Pressable style={styles.bellButton} onPress={onBellPress}>
+      <Pressable style={styles.bellButton} onPress={() => setPanelVisible(true)}>
         <Feather name="bell" size={18} color={colors.text} />
         {notificationCount > 0 && (
           <View style={styles.badge}>
@@ -33,6 +45,19 @@ export function Header({ title, notificationCount = 0, onBellPress }: HeaderProp
           </View>
         )}
       </Pressable>
+
+      <NotificacoesPanel
+        visible={panelVisible}
+        onClose={() => setPanelVisible(false)}
+        alertasAtivos={preferences.alertasGarantia}
+        itens={garantiasVencendo.map(({ equipamento, warranty }) => ({
+          id: equipamento.id,
+          serial: equipamento.serial,
+          modelo: equipamento.modelo,
+          dias: warranty.days ?? 0,
+        }))}
+        onItemPress={(id) => navigation.navigate('Detalhe', { id })}
+      />
     </View>
   );
 }
