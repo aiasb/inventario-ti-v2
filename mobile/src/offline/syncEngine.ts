@@ -172,7 +172,7 @@ async function dispatchOnce(item: StoredQueueItem): Promise<DispatchOk | Dispatc
         return { ok: true };
       }
       case 'abrirOsRadio': {
-        const radioId = resolveId('radio', item.op.input.radioId);
+        const radioId = item.op.input.radioId !== undefined ? resolveId('radio', item.op.input.radioId) : undefined;
         await repository.createManutencaoRadio({ ...item.op.input, radioId }, idem);
         return { ok: true };
       }
@@ -181,7 +181,7 @@ async function dispatchOnce(item: StoredQueueItem): Promise<DispatchOk | Dispatc
         return { ok: true };
       }
       case 'alterarStatusOsRadio': {
-        await repository.updateManutencaoRadioStatus(item.op.manutencaoRadioId, item.op.status, idem);
+        await repository.updateManutencaoRadioStatus(item.op.manutencaoRadioId, item.op.status, item.op.insumoIds, idem);
         return { ok: true };
       }
     }

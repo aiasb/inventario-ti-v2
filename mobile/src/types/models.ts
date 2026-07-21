@@ -225,9 +225,10 @@ export interface Insumo {
 export interface ManutencaoRadio {
   id: number;
   os: string;
-  radio: { id: number; numeroSerie: string; modelo: string | null };
+  radio: { id: number; numeroSerie: string; modelo: string | null } | null;
+  frota: { id: number; numero: string; nome: string } | null;
   titulo: string;
-  insumo: { id: number; nome: string } | null;
+  insumos: { id: number; nome: string }[];
   tipo: TipoManutencao;
   tecnico: string | null;
   custo: number | null;

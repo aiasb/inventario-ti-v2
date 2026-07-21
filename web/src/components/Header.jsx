@@ -2,15 +2,18 @@ import { useState } from 'react';
 import { Icon } from './Icons.jsx';
 import { useHeaderConfig } from '../context/HeaderContext.jsx';
 import { useCommandPalette } from './CommandPalette.jsx';
+import { useEmpresa } from '../context/EmpresaContext.jsx';
 import { useFetch } from '../hooks/useApi.js';
 import { formatDateTime } from '../utils/format.js';
 
 export function Header() {
   const { breadcrumb, title, action } = useHeaderConfig();
   const { openPalette } = useCommandPalette();
+  const { empresaAtual } = useEmpresa();
   const [notifOpen, setNotifOpen] = useState(false);
 
-  const { data } = useFetch('/manutencoes', { status: 'Aberta', limit: 5, sort: '-data' });
+  const isGeo = empresaAtual === 'geotecnologia';
+  const { data } = useFetch(isGeo ? '/manutencoes-radios' : '/manutencoes', { status: 'Aberta', limit: 5, sort: '-data' }, [isGeo]);
   const notifications = data?.data || [];
 
   return (

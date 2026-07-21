@@ -19,6 +19,7 @@ import { Radios } from './pages/Radios.jsx';
 import { ManutencoesRadios } from './pages/ManutencoesRadios.jsx';
 import { ResponsaveisGeo } from './pages/ResponsaveisGeo.jsx';
 import { CadastrosGeo } from './pages/CadastrosGeo.jsx';
+import { RelatoriosGeo } from './pages/RelatoriosGeo.jsx';
 
 function ProtectedRoute({ children }) {
   const { usuario, loading } = useAuth();
@@ -44,7 +45,8 @@ function ProtectedRoute({ children }) {
 function ModuleRoute({ modulo, empresa, children }) {
   const { usuario } = useAuth();
   const { empresaAtual } = useEmpresa();
-  const podeVer = !usuario?.permissoes || usuario.permissoes[modulo]?.podeVer !== false;
+  const modulos = Array.isArray(modulo) ? modulo : [modulo];
+  const podeVer = !usuario?.permissoes || modulos.some((m) => usuario.permissoes[m]?.podeVer !== false);
   if (!podeVer) return <Navigate to="/" replace />;
   // "empresa" restringe rotas específicas de TI/Geotecnologia à empresa
   // atualmente selecionada — módulos globais (dashboard, acessos,
@@ -89,6 +91,7 @@ export default function App() {
                 <Route path="/manutencoes-radios" element={<ModuleRoute modulo="manutencoesRadios" empresa="geotecnologia"><ManutencoesRadios /></ModuleRoute>} />
                 <Route path="/responsaveis-geo" element={<ModuleRoute modulo="responsaveisGeo" empresa="geotecnologia"><ResponsaveisGeo /></ModuleRoute>} />
                 <Route path="/cadastros-geo" element={<ModuleRoute modulo="cadastrosGeo" empresa="geotecnologia"><CadastrosGeo /></ModuleRoute>} />
+                <Route path="/relatorios-geo" element={<ModuleRoute modulo={['radios', 'manutencoesRadios']} empresa="geotecnologia"><RelatoriosGeo /></ModuleRoute>} />
                 <Route path="/acessos" element={<ModuleRoute modulo="acessos"><Acessos /></ModuleRoute>} />
                 <Route path="/configuracoes" element={<ModuleRoute modulo="configuracoes"><Configuracoes /></ModuleRoute>} />
                 <Route path="*" element={<Navigate to="/" replace />} />

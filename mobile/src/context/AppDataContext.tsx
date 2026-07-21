@@ -28,7 +28,7 @@ import {
   TipoEquipamento,
 } from '../types/models';
 import { warrantyInfo, WarrantyInfo } from '../utils/format';
-import { notifyGarantiasVencendo } from '../utils/notifications';
+import { notifyGarantiasVencendo, notifyNovasOsRadios } from '../utils/notifications';
 import { loadSnapshot, saveSnapshot } from '../offline/cache';
 import { enqueue, init as initSyncEngine, onProgress, cancelPendingCreate } from '../offline/syncEngine';
 import { useAuth } from './AuthContext';
@@ -75,7 +75,7 @@ interface AppDataContextValue {
   editarRadio: (id: number, input: EditarRadioInput) => Promise<Radio>;
   excluirRadio: (id: number) => Promise<void>;
   abrirOsRadio: (input: NovaManutencaoRadioInput) => Promise<ManutencaoRadio>;
-  alterarStatusOsRadio: (id: number, status: StatusManutencao) => Promise<ManutencaoRadio>;
+  alterarStatusOsRadio: (id: number, status: StatusManutencao, insumoIds?: number[]) => Promise<ManutencaoRadio>;
 }
 
 const AppDataContext = createContext<AppDataContextValue | null>(null);
@@ -607,17 +607,16 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       } catch (err) {
         if (!isNetworkError(err)) throw err;
         const tempId = nextTempId();
-        const radio = radios.find((r) => r.id === input.radioId);
-        const insumo = insumos.find((i) => i.id === input.insumoId);
+        const radio = input.radioId !== undefined ? radios.find((r) => r.id === input.radioId) : undefined;
+        const frota = input.frotaId !== undefined ? frotas.find((f) => f.id === input.frotaId) : undefined;
         const now = new Date().toISOString();
         const optimistic: ManutencaoRadio = {
           id: tempId,
           os: 'Pendente',
-          radio: radio
-            ? { id: radio.id, numeroSerie: radio.numeroSerie, modelo: radio.modelo }
-            : { id: input.radioId, numeroSerie: '—', modelo: null },
-          insumo: insumo ? { id: insumo.id, nome: insumo.nome } : null,
-          titulo: insumo?.nome || '—',
+          radio: radio ? { id: radio.id, numeroSerie: radio.numeroSerie, modelo: radio.modelo } : null,
+          frota: frota ? { id: frota.id, numero: frota.numero, nome: frota.nome } : null,
+          insumos: [],
+          titulo: input.titulo.trim(),
           tipo: input.tipo,
           tecnico: input.tecnico?.trim() || null,
           custo: null,
@@ -635,7 +634,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [refresh, showToast, radios, insumos]
+    [refresh, showToast, radios, frotas]
   );
 
   const alterarStatusOs = useCallback(
@@ -660,19 +659,19 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   );
 
   const alterarStatusOsRadio = useCallback(
-    async (id: number, status: StatusManutencao) => {
+    async (id: number, status: StatusManutencao, insumoIds?: number[]) => {
       if (id < 0) {
         showToast('Aguarde a sincronização desta OS antes de alterar o status.');
         return manutencoesRadios.find((m) => m.id === id)!;
       }
       try {
-        const updated = await repository.updateManutencaoRadioStatus(id, status);
+        const updated = await repository.updateManutencaoRadioStatus(id, status, insumoIds);
         await refresh();
         return updated;
       } catch (err) {
         if (!isNetworkError(err)) throw err;
         setManutencoesRadios((prev) => prev.map((m) => (m.id === id ? { ...m, status, pendingSync: true } : m)));
-        enqueue({ kind: 'alterarStatusOsRadio', manutencaoRadioId: id, status });
+        enqueue({ kind: 'alterarStatusOsRadio', manutencaoRadioId: id, status, insumoIds });
         showToast('Sem conexão — a alteração será enviada automaticamente quando a rede voltar.');
         return manutencoesRadios.find((m) => m.id === id)!;
       }
@@ -690,7 +689,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   const getRadio = useCallback((id: number) => radios.find((r) => r.id === id), [radios]);
 
   const getManutencoesRadioDe = useCallback(
-    (radioId: number) => manutencoesRadios.filter((m) => m.radio.id === radioId),
+    (radioId: number) => manutencoesRadios.filter((m) => m.radio?.id === radioId),
     [manutencoesRadios]
   );
 
@@ -715,6 +714,19 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       }))
     );
   }, [garantiasVencendo, preferences.alertasGarantia, preferences.notificacoesPush]);
+
+  useEffect(() => {
+    if (!preferences.notificacoesPush) return;
+    const sincronizadas = manutencoesRadios.filter((m) => m.id > 0);
+    if (sincronizadas.length === 0) return;
+    notifyNovasOsRadios(
+      sincronizadas.map((m) => ({
+        id: m.id,
+        os: m.os,
+        referencia: m.radio ? m.radio.numeroSerie : m.frota ? `Frota ${m.frota.numero}` : '',
+      }))
+    );
+  }, [manutencoesRadios, preferences.notificacoesPush]);
 
   const value = useMemo<AppDataContextValue>(
     () => ({

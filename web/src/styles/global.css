@@ -119,7 +119,7 @@ input, select, textarea {
 .page-content {
   padding: 24px 28px 48px;
   flex: 1;
-  animation: enter 0.25s ease both;
+  animation: enter 0.25s ease;
 }
 
 @keyframes enter {

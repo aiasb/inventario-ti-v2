@@ -6,6 +6,8 @@ export function ConfirmDialog({
   confirmLabel = 'Confirmar',
   cancelLabel = 'Cancelar',
   danger,
+  confirmDisabled,
+  children,
   onConfirm,
   onCancel,
 }) {
@@ -16,11 +18,12 @@ export function ConfirmDialog({
       footer={
         <>
           <button className="btn" onClick={onCancel}>{cancelLabel}</button>
-          <button className={`btn btn-primary${danger ? ' btn-danger' : ''}`} onClick={onConfirm}>{confirmLabel}</button>
+          <button className={`btn btn-primary${danger ? ' btn-danger' : ''}`} disabled={confirmDisabled} onClick={onConfirm}>{confirmLabel}</button>
         </>
       }
     >
       <p className="text-secondary" style={{ fontSize: 13.5 }}>{message}</p>
+      {children}
     </Modal>
   );
 }

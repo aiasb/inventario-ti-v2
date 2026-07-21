@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { BottomSheet } from './BottomSheet';
 import { colors, withAlpha } from '../theme/colors';
 import { fonts } from '../theme/typography';
 import { radius, spacing, touchTarget } from '../theme/spacing';
-import { STATUS_MANUTENCAO, StatusManutencao, statusManutencaoLabel } from '../types/models';
+import { Insumo, STATUS_MANUTENCAO, StatusManutencao, statusManutencaoLabel } from '../types/models';
 
 function statusColor(status: StatusManutencao): string {
   if (status === 'Concluida') return colors.accent;
@@ -18,29 +18,43 @@ interface StatusOsSheetProps {
   onClose: () => void;
   os: string;
   currentStatus: StatusManutencao;
-  onConfirm: (status: StatusManutencao) => void;
+  onConfirm: (status: StatusManutencao, insumoIds?: number[]) => void;
+  /** Status para os quais é obrigatório informar ao menos um insumo utilizado antes de confirmar. */
+  insumoRequiredFor?: StatusManutencao[];
+  insumos?: Insumo[];
 }
 
 /** Bottom sheet customizado para mover uma OS de status — substitui os
  * Alert.alert nativos por um fluxo em duas etapas (escolher → confirmar)
  * dentro do próprio visual do app. */
-export function StatusOsSheet({ visible, onClose, os, currentStatus, onConfirm }: StatusOsSheetProps) {
+export function StatusOsSheet({ visible, onClose, os, currentStatus, onConfirm, insumoRequiredFor, insumos }: StatusOsSheetProps) {
   const [selected, setSelected] = useState<StatusManutencao | null>(null);
+  const [insumoIds, setInsumoIds] = useState<number[]>([]);
 
   useEffect(() => {
-    if (visible) setSelected(null);
+    if (visible) {
+      setSelected(null);
+      setInsumoIds([]);
+    }
   }, [visible]);
 
   const opcoes = STATUS_MANUTENCAO.filter((s) => s !== currentStatus);
+  const precisaInsumo = !!selected && !!insumoRequiredFor?.includes(selected);
+  const insumoOptions = (insumos || []).filter((i) => i.ativo);
+
+  function toggleInsumo(id: number) {
+    setInsumoIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  }
 
   function handleConfirm() {
     if (!selected) return;
-    onConfirm(selected);
+    if (precisaInsumo && insumoIds.length === 0) return;
+    onConfirm(selected, insumoIds.length ? insumoIds : undefined);
     onClose();
   }
 
   return (
-    <BottomSheet visible={visible} onClose={onClose} heightPercent={selected ? 0.32 : 0.42}>
+    <BottomSheet visible={visible} onClose={onClose} heightPercent={selected ? (precisaInsumo ? 0.62 : 0.32) : 0.42}>
       <Text style={styles.os}>{os}</Text>
 
       {!selected && (
@@ -69,11 +83,31 @@ export function StatusOsSheet({ visible, onClose, os, currentStatus, onConfirm }
             <Text style={[styles.confirmBadgeText, { color: statusColor(selected) }]}>{statusManutencaoLabel(selected)}</Text>
           </View>
           <Text style={styles.confirmText}>Confirma mover esta OS para o status acima?</Text>
+          {precisaInsumo && (
+            <View style={styles.insumoWrap}>
+              <Text style={styles.insumoLabel}>Insumos utilizados * (selecione um ou mais)</Text>
+              <ScrollView style={{ maxHeight: 180 }} showsVerticalScrollIndicator={false}>
+                {insumoOptions.map((i) => {
+                  const checked = insumoIds.includes(i.id);
+                  return (
+                    <Pressable key={i.id} style={styles.insumoRow} onPress={() => toggleInsumo(i.id)}>
+                      <Feather name={checked ? 'check-square' : 'square'} size={18} color={checked ? colors.accent : colors.textMuted} />
+                      <Text style={styles.insumoText}>{i.nome}</Text>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            </View>
+          )}
           <View style={styles.actions}>
             <Pressable style={styles.backBtn} onPress={() => setSelected(null)}>
               <Text style={styles.cancelText}>Voltar</Text>
             </Pressable>
-            <Pressable style={styles.confirmBtn} onPress={handleConfirm}>
+            <Pressable
+              style={[styles.confirmBtn, precisaInsumo && insumoIds.length === 0 && { opacity: 0.5 }]}
+              disabled={precisaInsumo && insumoIds.length === 0}
+              onPress={handleConfirm}
+            >
               <Text style={styles.confirmBtnText}>Confirmar</Text>
             </Pressable>
           </View>
@@ -151,6 +185,26 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginBottom: spacing.lg,
     lineHeight: 19,
+  },
+  insumoWrap: {
+    marginBottom: spacing.md,
+  },
+  insumoLabel: {
+    fontFamily: fonts.bodyMedium,
+    fontSize: 12.5,
+    color: colors.textSecondary,
+    marginBottom: 8,
+  },
+  insumoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 9,
+  },
+  insumoText: {
+    fontFamily: fonts.bodyRegular,
+    fontSize: 14,
+    color: colors.text,
   },
   actions: {
     flexDirection: 'row',

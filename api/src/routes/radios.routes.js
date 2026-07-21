@@ -4,6 +4,8 @@ import { asyncHandler } from '../utils/asyncHandler.js';
 import { notFound, badRequest } from '../utils/errors.js';
 import { parsePagination, buildSort, paginatedResponse } from '../utils/pagination.js';
 import { requireAuth, requirePermission, requireEmpresa } from '../middleware/auth.js';
+import { formatDateBR } from '../utils/formatDate.js';
+import { renderTabularPdf } from '../utils/relatoriosPdf.js';
 
 const router = Router();
 
@@ -48,47 +50,65 @@ const SORT_COLUMNS = {
   updatedAt: 'r.updated_at',
 };
 
+function buildRadiosFilters(qs) {
+  const { status, frotaId, areaId, responsavelId, q, numeroSerie, id, dataInicio, dataFim } = qs;
+  const conditions = ['r.deleted_at IS NULL'];
+  const params = [];
+
+  if (status) {
+    params.push(status);
+    conditions.push(`r.status = $${params.length}`);
+  }
+  if (frotaId) {
+    params.push(frotaId);
+    conditions.push(`r.frota_id = $${params.length}`);
+  }
+  if (areaId) {
+    params.push(areaId);
+    conditions.push(`r.area_id = $${params.length}`);
+  }
+  if (responsavelId) {
+    params.push(responsavelId);
+    conditions.push(`r.responsavel_id = $${params.length}`);
+  }
+  if (numeroSerie) {
+    params.push(`%${numeroSerie}%`);
+    conditions.push(`r.numero_serie ILIKE $${params.length}`);
+  }
+  if (id) {
+    params.push(`%${id}%`);
+    const idx = params.length;
+    conditions.push(`(r.id_digital ILIKE $${idx} OR r.id_analogico ILIKE $${idx})`);
+  }
+  if (dataInicio) {
+    params.push(dataInicio);
+    conditions.push(`r.data_aquisicao >= $${params.length}`);
+  }
+  if (dataFim) {
+    params.push(dataFim);
+    conditions.push(`r.data_aquisicao <= $${params.length}`);
+  }
+  if (q) {
+    params.push(`%${q}%`);
+    const idx = params.length;
+    conditions.push(
+      `(r.numero_serie ILIKE $${idx} OR r.modelo ILIKE $${idx} OR resp.nome ILIKE $${idx})`
+    );
+  }
+
+  return { conditions, params };
+}
+
 router.get(
   '/',
   requireAuth,
   requireEmpresa('geotecnologia'),
   requirePermission('radios', 'ver'),
   asyncHandler(async (req, res) => {
-    const { status, frotaId, areaId, responsavelId, q, numeroSerie } = req.query;
     const { page, limit, offset } = parsePagination(req.query);
     const orderBy = buildSort(req.query, SORT_COLUMNS, 'r.updated_at DESC'.split(' ')[0]);
 
-    const conditions = ['r.deleted_at IS NULL'];
-    const params = [];
-
-    if (status) {
-      params.push(status);
-      conditions.push(`r.status = $${params.length}`);
-    }
-    if (frotaId) {
-      params.push(frotaId);
-      conditions.push(`r.frota_id = $${params.length}`);
-    }
-    if (areaId) {
-      params.push(areaId);
-      conditions.push(`r.area_id = $${params.length}`);
-    }
-    if (responsavelId) {
-      params.push(responsavelId);
-      conditions.push(`r.responsavel_id = $${params.length}`);
-    }
-    if (numeroSerie) {
-      params.push(`%${numeroSerie}%`);
-      conditions.push(`r.numero_serie ILIKE $${params.length}`);
-    }
-    if (q) {
-      params.push(`%${q}%`);
-      const idx = params.length;
-      conditions.push(
-        `(r.numero_serie ILIKE $${idx} OR r.modelo ILIKE $${idx} OR resp.nome ILIKE $${idx})`
-      );
-    }
-
+    const { conditions, params } = buildRadiosFilters(req.query);
     const where = `WHERE ${conditions.join(' AND ')}`;
     const { rows: countRows } = await query(
       `SELECT COUNT(*) FROM radios r LEFT JOIN responsaveis_geo resp ON resp.id = r.responsavel_id ${where}`,
@@ -103,6 +123,41 @@ router.get(
     );
 
     res.json(paginatedResponse({ data: rows.map(mapRow), total, page, limit }));
+  })
+);
+
+router.get(
+  '/export/pdf',
+  requireAuth,
+  requireEmpresa('geotecnologia'),
+  requirePermission('radios', 'ver'),
+  asyncHandler(async (req, res) => {
+    const orderBy = buildSort(req.query, SORT_COLUMNS, 'r.numero_serie'.split(' ')[0]);
+    const { conditions, params } = buildRadiosFilters(req.query);
+    const where = `WHERE ${conditions.join(' AND ')}`;
+    const { rows } = await query(`${BASE_SELECT} ${where} ORDER BY ${orderBy} LIMIT 5000`, params);
+    const data = rows.map(mapRow);
+
+    const buffer = await renderTabularPdf({
+      title: 'Relatório de Rádios',
+      subtitle: `Gerado em ${new Date().toLocaleString('pt-BR')} · ${data.length} registro(s)`,
+      columns: [
+        { label: 'Nº Série', value: (r) => r.numeroSerie, weight: 1.2 },
+        { label: 'Modelo', value: (r) => r.modelo, weight: 1.3 },
+        { label: 'ID Digital', value: (r) => r.idDigital, weight: 1 },
+        { label: 'ID Analógico', value: (r) => r.idAnalogico, weight: 1 },
+        { label: 'Frota', value: (r) => (r.frota ? `${r.frota.numero} · ${r.frota.nome}` : ''), weight: 1.3 },
+        { label: 'Área', value: (r) => r.area?.nome, weight: 1.1 },
+        { label: 'Responsável', value: (r) => r.responsavel?.nome, weight: 1.2 },
+        { label: 'Status', value: (r) => r.status, weight: 0.9 },
+        { label: 'Aquisição', value: (r) => formatDateBR(r.dataAquisicao), weight: 0.9 },
+      ],
+      rows: data,
+    });
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'attachment; filename="relatorio-radios.pdf"');
+    res.send(buffer);
   })
 );
 

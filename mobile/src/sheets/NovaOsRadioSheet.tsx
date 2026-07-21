@@ -4,7 +4,7 @@ import { BottomSheet } from '../components/BottomSheet';
 import { FormField } from '../components/FormField';
 import { SelectField } from '../components/SelectField';
 import { RadioPickerField } from '../components/RadioPickerField';
-import { colors } from '../theme/colors';
+import { colors, withAlpha } from '../theme/colors';
 import { fonts } from '../theme/typography';
 import { radius, spacing, touchTarget } from '../theme/spacing';
 import { useAppData } from '../context/AppDataContext';
@@ -23,46 +23,60 @@ export function NovaOsRadioSheet({
   /** Quando omitido, o usuário escolhe o rádio na própria sheet. */
   radio?: Radio | null;
 }) {
-  const { radios, insumos, abrirOsRadio } = useAppData();
+  const { radios, frotas, abrirOsRadio } = useAppData();
   const { showToast } = useToast();
+  const [modo, setModo] = useState<'radio' | 'frota'>('radio');
   const [selecionado, setSelecionado] = useState<Radio | null>(radio ?? null);
-  const [insumoNome, setInsumoNome] = useState('');
+  const [frotaLabel, setFrotaLabel] = useState('');
+  const [titulo, setTitulo] = useState('');
   const [tipo, setTipo] = useState<TipoManutencao>('Corretiva');
   const [tecnico, setTecnico] = useState('');
   const [saving, setSaving] = useState(false);
 
-  const insumoOptions = insumos.filter((i) => i.ativo).map((i) => i.nome);
+  const frotaOptions = frotas.filter((f) => f.ativo).map((f) => `${f.numero} · ${f.nome}`);
 
   useEffect(() => {
     if (visible) {
       setSelecionado(radio ?? null);
-      setInsumoNome(insumoOptions[0] || '');
+      setModo('radio');
+      setFrotaLabel('');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible, radio]);
 
   function reset() {
-    setInsumoNome('');
+    setTitulo('');
     setTipo('Corretiva');
     setTecnico('');
+    setFrotaLabel('');
   }
 
   async function handleSave() {
-    if (!selecionado) {
+    const frotaSelecionada = modo === 'frota' ? frotas.find((f) => `${f.numero} · ${f.nome}` === frotaLabel) : null;
+    if (modo === 'radio' && !selecionado) {
       showToast('Selecione um rádio.');
       return;
     }
-    const insumo = insumos.find((i) => i.nome === insumoNome);
-    if (!insumo) {
-      showToast('Selecione um insumo.');
+    if (modo === 'frota' && !frotaSelecionada) {
+      showToast('Selecione uma frota.');
+      return;
+    }
+    if (!titulo.trim()) {
+      showToast('Informe o defeito.');
       return;
     }
     setSaving(true);
     try {
-      const os = await abrirOsRadio({ radioId: selecionado.id, insumoId: insumo.id, tipo, tecnico });
+      const os = await abrirOsRadio({
+        radioId: modo === 'radio' ? selecionado!.id : undefined,
+        frotaId: modo === 'frota' ? frotaSelecionada!.id : undefined,
+        titulo: titulo.trim(),
+        tipo,
+        tecnico,
+      });
       reset();
       onClose();
-      showToast(`${os.os} aberta para ${selecionado.numeroSerie}.`);
+      showToast(`${os.os} aberta.`);
     } finally {
       setSaving(false);
     }
@@ -80,16 +94,33 @@ export function NovaOsRadioSheet({
       </View>
 
       {!radio && (
-        <RadioPickerField
-          label="Rádio"
-          required
-          value={selecionado}
-          radios={radios}
-          onChange={setSelecionado}
-        />
+        <>
+          <View style={styles.modoRow}>
+            <Pressable style={[styles.modoBtn, modo === 'radio' && styles.modoBtnActive]} onPress={() => setModo('radio')}>
+              <Text style={[styles.modoText, modo === 'radio' && styles.modoTextActive]}>Rádio</Text>
+            </Pressable>
+            <Pressable style={[styles.modoBtn, modo === 'frota' && styles.modoBtnActive]} onPress={() => setModo('frota')}>
+              <Text style={[styles.modoText, modo === 'frota' && styles.modoTextActive]}>Frota</Text>
+            </Pressable>
+          </View>
+
+          {modo === 'radio' && (
+            <RadioPickerField
+              label="Rádio"
+              required
+              value={selecionado}
+              radios={radios}
+              onChange={setSelecionado}
+            />
+          )}
+
+          {modo === 'frota' && (
+            <SelectField label="Frota" required value={frotaLabel} options={frotaOptions} onChange={setFrotaLabel} />
+          )}
+        </>
       )}
 
-      <SelectField label="Insumo" value={insumoNome} options={insumoOptions} onChange={setInsumoNome} />
+      <FormField label="Informar defeito" required placeholder="Ex.: Rádio sem sinal" value={titulo} onChangeText={setTitulo} multiline numberOfLines={3} />
       <SelectField label="Tipo" value={tipo} options={TIPOS} onChange={(v) => setTipo(v as TipoManutencao)} />
       <FormField label="Técnico responsável" placeholder="Nome do técnico" value={tecnico} onChangeText={setTecnico} />
 
@@ -128,6 +159,32 @@ const styles = StyleSheet.create({
   patText: {
     fontFamily: fonts.monoSemiBold,
     fontSize: 12,
+    color: colors.accent,
+  },
+  modoRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  modoBtn: {
+    flex: 1,
+    height: 38,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modoBtnActive: {
+    backgroundColor: withAlpha(colors.accent, 0.14),
+    borderColor: colors.accent,
+  },
+  modoText: {
+    fontFamily: fonts.bodyMedium,
+    fontSize: 13,
+    color: colors.textSecondary,
+  },
+  modoTextActive: {
     color: colors.accent,
   },
   actions: {

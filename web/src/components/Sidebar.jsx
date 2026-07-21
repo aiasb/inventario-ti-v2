@@ -30,6 +30,7 @@ const NAV_GROUPS = [
       { to: '/manutencoes-radios', label: 'Manutenções', icon: 'wrench', modulo: 'manutencoesRadios' },
       { to: '/responsaveis-geo', label: 'Responsáveis', icon: 'person', modulo: 'responsaveisGeo' },
       { to: '/cadastros-geo', label: 'Cadastros', icon: 'grid', modulo: 'cadastrosGeo' },
+      { to: '/relatorios-geo', label: 'Relatórios', icon: 'doc', modulo: ['radios', 'manutencoesRadios'] },
     ],
   },
   {
@@ -94,7 +95,8 @@ export function Sidebar() {
   function podeVer(modulo) {
     // Sem mapa de permissões carregado ainda (ex.: sessão de token de API), libera por padrão.
     if (!usuario?.permissoes) return true;
-    return usuario.permissoes[modulo]?.podeVer !== false;
+    const modulos = Array.isArray(modulo) ? modulo : [modulo];
+    return modulos.some((m) => usuario.permissoes[m]?.podeVer !== false);
   }
 
   return (

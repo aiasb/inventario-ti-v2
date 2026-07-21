@@ -13,6 +13,7 @@ export type TabParamListGeo = {
   InicioGeo: undefined;
   RadiosTab: undefined;
   ManutencoesRadiosTab: undefined;
+  RelatoriosGeoTab: undefined;
   ConfigGeo: undefined;
 };
 

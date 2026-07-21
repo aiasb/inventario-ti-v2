@@ -15,6 +15,7 @@ import { formatDate } from '../utils/format';
 import { ManutencaoRadio, STATUS_MANUTENCAO, StatusManutencao, statusManutencaoLabel } from '../types/models';
 import { RootStackParamList } from '../navigation/types';
 import { NovaOsRadioSheet } from '../sheets/NovaOsRadioSheet';
+import { DetalheOsRadioSheet } from '../sheets/DetalheOsRadioSheet';
 
 type Filter = 'Todos' | StatusManutencao;
 const FILTERS: Filter[] = ['Todos', ...STATUS_MANUTENCAO];
@@ -30,12 +31,13 @@ function statusManutencaoColor(status: StatusManutencao): string {
 export function ManutencoesRadiosScreen() {
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
-  const { manutencoesRadios, alterarStatusOsRadio } = useAppData();
+  const { manutencoesRadios, insumos, alterarStatusOsRadio } = useAppData();
   const { podeCriar, podeEditar } = useAuth();
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<Filter>('Todos');
   const [osSheetVisible, setOsSheetVisible] = useState(false);
   const [statusSheetItem, setStatusSheetItem] = useState<ManutencaoRadio | null>(null);
+  const [detalheItem, setDetalheItem] = useState<ManutencaoRadio | null>(null);
 
   function changeStatus(item: ManutencaoRadio) {
     if (!podeEditar('manutencoesRadios')) return;
@@ -56,7 +58,8 @@ export function ManutencoesRadiosScreen() {
       return (
         m.os.toLowerCase().includes(q) ||
         m.titulo.toLowerCase().includes(q) ||
-        m.radio.numeroSerie.toLowerCase().includes(q) ||
+        (m.radio?.numeroSerie || '').toLowerCase().includes(q) ||
+        (m.frota ? `${m.frota.numero} ${m.frota.nome}` : '').toLowerCase().includes(q) ||
         (m.tecnico || '').toLowerCase().includes(q)
       );
     });
@@ -69,7 +72,7 @@ export function ManutencoesRadiosScreen() {
     return (
       <Pressable
         style={styles.row}
-        onPress={() => navigation.navigate('DetalheRadio', { id: item.radio.id })}
+        onPress={() => setDetalheItem(item)}
       >
         <View style={styles.rowTop}>
           <Text style={styles.os}>{item.os}</Text>
@@ -89,7 +92,7 @@ export function ManutencoesRadiosScreen() {
         </View>
         <Text style={styles.titulo} numberOfLines={1}>{item.titulo}</Text>
         <Text style={styles.meta} numberOfLines={1}>
-          {item.radio.numeroSerie} · {item.radio.modelo || 'Rádio'}
+          {item.radio ? `${item.radio.numeroSerie} · ${item.radio.modelo || 'Rádio'}` : item.frota ? `Frota ${item.frota.numero} · ${item.frota.nome}` : '—'}
         </Text>
         <Text style={styles.meta}>
           {item.tipo} · {item.tecnico || 'sem técnico'} · {formatDate(item.data)}
@@ -164,12 +167,16 @@ export function ManutencoesRadiosScreen() {
 
       <NovaOsRadioSheet visible={osSheetVisible} onClose={() => setOsSheetVisible(false)} />
 
+      <DetalheOsRadioSheet visible={!!detalheItem} onClose={() => setDetalheItem(null)} item={detalheItem} />
+
       <StatusOsSheet
         visible={!!statusSheetItem}
         onClose={() => setStatusSheetItem(null)}
         os={statusSheetItem?.os || ''}
         currentStatus={statusSheetItem?.status || 'Aberta'}
-        onConfirm={(status) => statusSheetItem && alterarStatusOsRadio(statusSheetItem.id, status)}
+        insumoRequiredFor={statusSheetItem?.insumos.length ? [] : ['Concluida']}
+        insumos={insumos}
+        onConfirm={(status, insumoIds) => statusSheetItem && alterarStatusOsRadio(statusSheetItem.id, status, insumoIds)}
       />
     </View>
   );

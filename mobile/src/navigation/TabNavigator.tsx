@@ -12,6 +12,7 @@ import { ConfiguracoesScreen } from '../screens/ConfiguracoesScreen';
 import { InicioGeoScreen } from '../screens/InicioGeoScreen';
 import { RadiosScreen } from '../screens/RadiosScreen';
 import { ManutencoesRadiosScreen } from '../screens/ManutencoesRadiosScreen';
+import { RelatoriosGeoScreen } from '../screens/RelatoriosGeoScreen';
 
 const TabTI = createBottomTabNavigator<TabParamListTI>();
 const TabGeo = createBottomTabNavigator<TabParamListGeo>();
@@ -41,6 +42,7 @@ function TabNavigatorGeo() {
       <TabGeo.Screen name="InicioGeo" component={InicioGeoScreen} />
       <TabGeo.Screen name="RadiosTab" component={RadiosScreen} />
       <TabGeo.Screen name="ManutencoesRadiosTab" component={ManutencoesRadiosScreen} />
+      <TabGeo.Screen name="RelatoriosGeoTab" component={RelatoriosGeoScreen} />
       <TabGeo.Screen name="ConfigGeo" component={ConfiguracoesScreen} />
     </TabGeo.Navigator>
   );

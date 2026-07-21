@@ -68,3 +68,55 @@ export async function notifyGarantiasVencendo(
   const todosIds = [...jaNotificados, ...novos.map((i) => i.id)];
   await AsyncStorage.setItem(NOTIFIED_KEY, JSON.stringify({ date: todayKey, ids: todosIds }));
 }
+
+const OS_RADIOS_SEEN_KEY = '@inventario/osRadiosNotificadas';
+
+async function getSeenOsRadios(): Promise<Set<number> | null> {
+  const raw = await AsyncStorage.getItem(OS_RADIOS_SEEN_KEY);
+  if (!raw) return null;
+  try {
+    const ids: number[] = JSON.parse(raw);
+    return new Set(ids);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Dispara uma notificação local para novas OS de rádio abertas.
+ * Na primeira execução apenas registra as OS já existentes, sem notificar,
+ * para não gerar uma enxurrada de notificações com o histórico anterior.
+ */
+export async function notifyNovasOsRadios(
+  itens: { id: number; os: string; referencia: string }[]
+): Promise<void> {
+  const seen = await getSeenOsRadios();
+
+  if (seen === null) {
+    await AsyncStorage.setItem(OS_RADIOS_SEEN_KEY, JSON.stringify(itens.map((i) => i.id)));
+    return;
+  }
+
+  const novas = itens.filter((i) => !seen.has(i.id));
+  if (novas.length > 0) {
+    const granted = await requestNotificationPermission();
+    if (granted) {
+      const titulo = novas.length === 1 ? 'Nova OS de rádio aberta' : `${novas.length} novas OS de rádio abertas`;
+      const corpo =
+        novas.length === 1
+          ? `${novas[0].os} — ${novas[0].referencia}`
+          : novas
+              .slice(0, 3)
+              .map((i) => i.os)
+              .join(', ') + (novas.length > 3 ? '…' : '');
+
+      await Notifications.scheduleNotificationAsync({
+        content: { title: titulo, body: corpo },
+        trigger: null,
+      });
+    }
+  }
+
+  const todosIds = new Set([...seen, ...itens.map((i) => i.id)]);
+  await AsyncStorage.setItem(OS_RADIOS_SEEN_KEY, JSON.stringify([...todosIds]));
+}

@@ -101,12 +101,15 @@ export function InicioGeoScreen() {
             <Pressable
               key={m.id}
               style={[styles.row, idx < osRecentes.length - 1 && styles.divider]}
-              onPress={() => navigation.navigate('DetalheRadio', { id: m.radio.id })}
+              disabled={!m.radio}
+              onPress={() => m.radio && navigation.navigate('DetalheRadio', { id: m.radio.id })}
             >
               <View style={{ flex: 1 }}>
                 <Text style={styles.osNum}>{m.os}</Text>
                 <Text style={styles.rowTitle} numberOfLines={1}>{m.titulo}</Text>
-                <Text style={styles.rowSubtitle}>{m.radio.numeroSerie} · {formatDate(m.data)}</Text>
+                <Text style={styles.rowSubtitle}>
+                  {m.radio ? m.radio.numeroSerie : m.frota ? `Frota ${m.frota.numero}` : '—'} · {formatDate(m.data)}
+                </Text>
               </View>
               <View
                 style={[

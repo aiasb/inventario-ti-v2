@@ -265,7 +265,7 @@ export function DashboardGeo() {
               </div>
               <div style={{ fontSize: 13, margin: '4px 0 2px' }}>{m.titulo}</div>
               <div className="text-muted" style={{ fontSize: 11.5 }}>
-                {m.radio.numeroSerie} · {formatDateTime(m.data)}
+                {m.radio ? m.radio.numeroSerie : m.frota ? `Frota ${m.frota.numero}` : '—'} · {formatDateTime(m.data)}
               </div>
             </div>
           ))}

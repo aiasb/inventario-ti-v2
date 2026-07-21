@@ -81,8 +81,9 @@ export interface NovoRadioInput {
 export type EditarRadioInput = NovoRadioInput;
 
 export interface NovaManutencaoRadioInput {
-  radioId: number;
-  insumoId: number;
+  radioId?: number;
+  frotaId?: number;
+  titulo: string;
   tipo: ManutencaoRadio['tipo'];
   tecnico?: string;
 }
@@ -392,7 +393,8 @@ class RemoteRepository {
       '/manutencoes-radios',
       {
         radioId: input.radioId,
-        insumoId: input.insumoId,
+        frotaId: input.frotaId,
+        titulo: input.titulo.trim(),
         tipo: input.tipo,
         tecnico: input.tecnico?.trim() || null,
       },
@@ -400,8 +402,8 @@ class RemoteRepository {
     );
   }
 
-  async updateManutencaoRadioStatus(id: number, status: StatusManutencao, idempotencyKey?: string): Promise<ManutencaoRadio> {
-    return api.patch<ManutencaoRadio>(`/manutencoes-radios/${id}/status`, { status }, idemHeaders(idempotencyKey));
+  async updateManutencaoRadioStatus(id: number, status: StatusManutencao, insumoIds?: number[], idempotencyKey?: string): Promise<ManutencaoRadio> {
+    return api.patch<ManutencaoRadio>(`/manutencoes-radios/${id}/status`, { status, insumoIds }, idemHeaders(idempotencyKey));
   }
 
   // ---- Geotecnologia: Frotas --------------------------------------------------

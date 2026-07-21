@@ -31,7 +31,7 @@ export type QueuedOperation =
   | { kind: 'excluirRadio'; radioId: number }
   | { kind: 'abrirOsRadio'; tempId: number; input: NovaManutencaoRadioInput }
   | { kind: 'alterarStatusOs'; manutencaoId: number; status: StatusManutencao }
-  | { kind: 'alterarStatusOsRadio'; manutencaoRadioId: number; status: StatusManutencao };
+  | { kind: 'alterarStatusOsRadio'; manutencaoRadioId: number; status: StatusManutencao; insumoIds?: number[] };
 
 export type QueuedOperationKind = QueuedOperation['kind'];
 
