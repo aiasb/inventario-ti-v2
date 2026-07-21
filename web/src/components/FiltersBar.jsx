@@ -1,10 +1,9 @@
 import { useLookup } from '../hooks/useApi.js';
 import { Icon } from './Icons.jsx';
 
-const STATUS_OPTIONS = ['Ativo', 'Manutencao', 'Estoque', 'Baixado'];
-
-export function FiltersBar({ filters, onChange, showStatus = true, showSearch = true }) {
+export function FiltersBar({ filters, onChange, showStatus = true, showSetor = true, showSearch = true }) {
   const setores = useLookup('/setores');
+  const statusOptions = useLookup('/status-ativo');
 
   const hasActive = Object.values(filters).some((v) => v);
 
@@ -18,25 +17,27 @@ export function FiltersBar({ filters, onChange, showStatus = true, showSearch = 
 
   return (
     <div className="filters-bar">
-      <div className="field">
-        <label>Setor</label>
-        <select className="input" value={filters.setorId || ''} onChange={(e) => set('setorId', e.target.value)}>
-          <option value="">Todos</option>
-          {setores.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.nome}
-            </option>
-          ))}
-        </select>
-      </div>
+      {showSetor && (
+        <div className="field">
+          <label>Setor</label>
+          <select className="input" value={filters.setorId || ''} onChange={(e) => set('setorId', e.target.value)}>
+            <option value="">Todos</option>
+            {setores.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.nome}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
       {showStatus && (
         <div className="field">
           <label>Status</label>
           <select className="input" value={filters.status || ''} onChange={(e) => set('status', e.target.value)}>
             <option value="">Todos</option>
-            {STATUS_OPTIONS.map((s) => (
-              <option key={s} value={s}>
-                {s === 'Manutencao' ? 'Manutenção' : s}
+            {statusOptions.filter((s) => s.ativo || s.nome === filters.status).map((s) => (
+              <option key={s.id} value={s.nome}>
+                {s.nome === 'Manutencao' ? 'Manutenção' : s.nome}
               </option>
             ))}
           </select>

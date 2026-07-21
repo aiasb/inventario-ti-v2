@@ -5,6 +5,8 @@ import Constants from 'expo-constants';
 const SERVER_URL_KEY = '@inventario/serverUrl';
 const ACCESS_TOKEN_KEY = 'iti_access_token';
 const REFRESH_TOKEN_KEY = 'iti_refresh_token';
+const SAVED_EMAIL_KEY = 'iti_saved_email';
+const SAVED_SENHA_KEY = 'iti_saved_senha';
 
 const DEFAULT_API_URL = (Constants.expoConfig?.extra?.apiUrl as string) || 'http://localhost:8080/api/v1';
 
@@ -72,6 +74,27 @@ export async function clearTokens(): Promise<void> {
 
 export function hasAccessToken(): boolean {
   return !!accessToken;
+}
+
+/** Credenciais lembradas ficam no SecureStore (Keystore/Keychain, criptografado
+ * em repouso) — nunca em AsyncStorage puro, que não é seguro para senhas. */
+export async function saveCredentials(email: string, senha: string): Promise<void> {
+  await Promise.all([
+    SecureStore.setItemAsync(SAVED_EMAIL_KEY, email),
+    SecureStore.setItemAsync(SAVED_SENHA_KEY, senha),
+  ]);
+}
+
+export async function getSavedCredentials(): Promise<{ email: string; senha: string } | null> {
+  const [email, senha] = await Promise.all([
+    SecureStore.getItemAsync(SAVED_EMAIL_KEY),
+    SecureStore.getItemAsync(SAVED_SENHA_KEY),
+  ]);
+  return email && senha ? { email, senha } : null;
+}
+
+export async function clearSavedCredentials(): Promise<void> {
+  await Promise.all([SecureStore.deleteItemAsync(SAVED_EMAIL_KEY), SecureStore.deleteItemAsync(SAVED_SENHA_KEY)]);
 }
 
 export function getAccessToken(): string | null {

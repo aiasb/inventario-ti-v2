@@ -11,8 +11,6 @@ import { Icon } from '../components/Icons.jsx';
 import { useToast } from '../context/ToastContext.jsx';
 import { formatDate, warrantyStatus } from '../utils/format.js';
 
-const STATUS_OPTIONS = ['Ativo', 'Manutencao', 'Estoque', 'Baixado'];
-
 const COLUMNS = [
   { key: 'serial', label: 'Serial' },
   { key: 'tipo', label: 'Tipo' },
@@ -51,6 +49,7 @@ export function Inventario() {
   const setores = useLookup('/setores');
   const fornecedores = useLookup('/fornecedores');
   const responsaveis = useLookup('/responsaveis');
+  const statusOptions = useLookup('/status-ativo');
 
   const queryParams = {
     ...filters,
@@ -346,6 +345,7 @@ export function Inventario() {
           id={drawerId}
           onClose={() => setDrawerId(null)}
           onEdit={(e) => { setDrawerId(null); openEdit(e); }}
+          onDeleted={() => { setDrawerId(null); reload(); }}
         />
       )}
 
@@ -421,7 +421,9 @@ export function Inventario() {
               <div className="field">
                 <label>Status</label>
                 <select className="input" value={form.status} onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))}>
-                  {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s === 'Manutencao' ? 'Manutenção' : s}</option>)}
+                  {statusOptions.filter((s) => s.ativo || s.nome === form.status).map((s) => (
+                    <option key={s.id} value={s.nome}>{s.nome === 'Manutencao' ? 'Manutenção' : s.nome}</option>
+                  ))}
                 </select>
               </div>
               <div className="field">
@@ -448,8 +450,10 @@ export function Inventario() {
   );
 }
 
-function EquipamentoDrawer({ id, onClose, onEdit }) {
+function EquipamentoDrawer({ id, onClose, onEdit, onDeleted }) {
+  const { toast } = useToast();
   const { data: equip, loading } = useFetch(`/equipamentos/${id}`, {}, [id]);
+  const [deleting, setDeleting] = useState(false);
 
   if (loading || !equip) {
     return (
@@ -460,6 +464,20 @@ function EquipamentoDrawer({ id, onClose, onEdit }) {
   }
 
   const w = warrantyStatus(equip.dataGarantia);
+
+  async function handleDelete() {
+    if (!window.confirm(`Excluir o equipamento ${equip.serial}? Essa ação não pode ser desfeita.`)) return;
+    setDeleting(true);
+    try {
+      await api.delete(`/equipamentos/${equip.id}`);
+      toast('Equipamento excluído.');
+      onDeleted();
+    } catch (err) {
+      toast(err.message, 'error');
+    } finally {
+      setDeleting(false);
+    }
+  }
 
   return (
     <Drawer
@@ -506,7 +524,12 @@ function EquipamentoDrawer({ id, onClose, onEdit }) {
         </div>
       </div>
 
-      <button className="btn btn-sm mb-16" onClick={() => onEdit(equip)}>Editar equipamento</button>
+      <div className="flex gap-8 mb-16">
+        <button className="btn btn-sm" onClick={() => onEdit(equip)}>Editar equipamento</button>
+        <button className="btn btn-sm btn-danger" onClick={handleDelete} disabled={deleting}>
+          {deleting ? 'Excluindo…' : 'Excluir equipamento'}
+        </button>
+      </div>
 
       <div className="section-title">Histórico de manutenções</div>
       {(!equip.manutencoes || equip.manutencoes.length === 0) && (

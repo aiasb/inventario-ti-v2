@@ -11,7 +11,7 @@ import {
   setTokens,
   setUnauthorizedHandler,
 } from '../api/client';
-import { ModulePermission } from '../types/models';
+import { Empresa, ModulePermission } from '../types/models';
 
 const CACHED_USER_KEY = '@inventario/cachedUsuario';
 
@@ -24,6 +24,7 @@ export interface Usuario {
   perfilId: number;
   ativo: boolean;
   permissoes?: Record<string, ModulePermission>;
+  empresas?: Empresa[];
 }
 
 interface AuthContextValue {

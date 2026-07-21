@@ -13,12 +13,12 @@ import { useAppData } from '../context/AppDataContext';
 import { useRefreshControl } from '../hooks/useRefreshControl';
 import { ageInYears, formatAge } from '../utils/format';
 import { STATUS_EQUIPAMENTO, statusLabel } from '../types/models';
-import { TabParamList } from '../navigation/types';
+import { TabParamListTI } from '../navigation/types';
 
 const MONTH_LABELS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
 
 export function RelatoriosScreen() {
-  const navigation = useNavigation<BottomTabNavigationProp<TabParamList>>();
+  const navigation = useNavigation<BottomTabNavigationProp<TabParamListTI>>();
   const { equipamentos, manutencoes, setores } = useAppData();
   const { refreshing, onRefresh } = useRefreshControl();
 

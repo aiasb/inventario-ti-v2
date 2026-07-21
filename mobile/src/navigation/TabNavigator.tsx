@@ -1,28 +1,55 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { TabParamList } from './types';
+import { TabParamListGeo, TabParamListTI } from './types';
 import { CustomTabBar } from './CustomTabBar';
+import { useEmpresa } from '../context/EmpresaContext';
 import { InicioScreen } from '../screens/InicioScreen';
 import { ItensScreen } from '../screens/ItensScreen';
 import { ManutencoesScreen } from '../screens/ManutencoesScreen';
 import { TermosScreen } from '../screens/TermosScreen';
 import { RelatoriosScreen } from '../screens/RelatoriosScreen';
 import { ConfiguracoesScreen } from '../screens/ConfiguracoesScreen';
+import { InicioGeoScreen } from '../screens/InicioGeoScreen';
+import { RadiosScreen } from '../screens/RadiosScreen';
+import { ManutencoesRadiosScreen } from '../screens/ManutencoesRadiosScreen';
 
-const Tab = createBottomTabNavigator<TabParamList>();
+const TabTI = createBottomTabNavigator<TabParamListTI>();
+const TabGeo = createBottomTabNavigator<TabParamListGeo>();
 
-export function TabNavigator() {
+function TabNavigatorTI() {
   return (
-    <Tab.Navigator
+    <TabTI.Navigator
       screenOptions={{ headerShown: false }}
       tabBar={(props) => <CustomTabBar {...props} />}
     >
-      <Tab.Screen name="Inicio" component={InicioScreen} />
-      <Tab.Screen name="Itens" component={ItensScreen} />
-      <Tab.Screen name="Manutencoes" component={ManutencoesScreen} />
-      <Tab.Screen name="Termos" component={TermosScreen} />
-      <Tab.Screen name="Relatorios" component={RelatoriosScreen} />
-      <Tab.Screen name="Config" component={ConfiguracoesScreen} />
-    </Tab.Navigator>
+      <TabTI.Screen name="Inicio" component={InicioScreen} />
+      <TabTI.Screen name="Itens" component={ItensScreen} />
+      <TabTI.Screen name="Manutencoes" component={ManutencoesScreen} />
+      <TabTI.Screen name="Termos" component={TermosScreen} />
+      <TabTI.Screen name="Relatorios" component={RelatoriosScreen} />
+      <TabTI.Screen name="Config" component={ConfiguracoesScreen} />
+    </TabTI.Navigator>
   );
+}
+
+function TabNavigatorGeo() {
+  return (
+    <TabGeo.Navigator
+      screenOptions={{ headerShown: false }}
+      tabBar={(props) => <CustomTabBar {...props} />}
+    >
+      <TabGeo.Screen name="InicioGeo" component={InicioGeoScreen} />
+      <TabGeo.Screen name="RadiosTab" component={RadiosScreen} />
+      <TabGeo.Screen name="ManutencoesRadiosTab" component={ManutencoesRadiosScreen} />
+      <TabGeo.Screen name="ConfigGeo" component={ConfiguracoesScreen} />
+    </TabGeo.Navigator>
+  );
+}
+
+/** Alterna o conjunto de abas conforme a empresa selecionada (ver
+ * EmpresaContext) — TI e Geotecnologia têm módulos completamente
+ * diferentes, então os menus/dashboard precisam corresponder. */
+export function TabNavigator() {
+  const { empresaAtual } = useEmpresa();
+  return empresaAtual === 'geotecnologia' ? <TabNavigatorGeo /> : <TabNavigatorTI />;
 }

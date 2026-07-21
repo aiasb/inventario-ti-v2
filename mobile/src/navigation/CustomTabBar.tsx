@@ -8,6 +8,7 @@ import { fonts } from '../theme/typography';
 import { radius } from '../theme/spacing';
 import { useSheet } from '../context/SheetContext';
 import { useAuth } from '../context/AuthContext';
+import { useEmpresa } from '../context/EmpresaContext';
 
 const TAB_ICON: Record<string, keyof typeof Feather.glyphMap> = {
   Inicio: 'home',
@@ -16,6 +17,10 @@ const TAB_ICON: Record<string, keyof typeof Feather.glyphMap> = {
   Termos: 'file-text',
   Relatorios: 'bar-chart-2',
   Config: 'settings',
+  InicioGeo: 'home',
+  RadiosTab: 'radio',
+  ManutencoesRadiosTab: 'tool',
+  ConfigGeo: 'settings',
 };
 
 const TAB_LABEL: Record<string, string> = {
@@ -25,12 +30,20 @@ const TAB_LABEL: Record<string, string> = {
   Termos: 'Termos',
   Relatorios: 'Relatórios',
   Config: 'Config',
+  InicioGeo: 'Início',
+  RadiosTab: 'Rádios',
+  ManutencoesRadiosTab: 'Manutenções',
+  ConfigGeo: 'Config',
 };
 
 export function CustomTabBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
-  const { openNovoEquipamento } = useSheet();
+  const { openNovoEquipamento, openNovoRadio } = useSheet();
   const { podeCriar } = useAuth();
+  const { empresaAtual } = useEmpresa();
+  const isGeo = empresaAtual === 'geotecnologia';
+  const fabModulo = isGeo ? 'radios' : 'inventario';
+  const fabAction = isGeo ? openNovoRadio : openNovoEquipamento;
 
   const half = Math.ceil(state.routes.length / 2);
   const leftRoutes = state.routes.slice(0, half);
@@ -74,8 +87,8 @@ export function CustomTabBar({ state, navigation }: BottomTabBarProps) {
         {rightRoutes.map(renderTab)}
       </View>
 
-      {podeCriar('inventario') && (
-        <Pressable style={styles.fab} onPress={openNovoEquipamento}>
+      {podeCriar(fabModulo) && (
+        <Pressable style={styles.fab} onPress={fabAction}>
           <Feather name="plus" size={26} color="#06210b" />
         </Pressable>
       )}

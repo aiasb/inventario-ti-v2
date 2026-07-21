@@ -21,6 +21,10 @@ const MODULOS = [
   { key: 'acessos', label: 'Acessos' },
   { key: 'cadastros', label: 'Cadastros' },
   { key: 'configuracoes', label: 'Configurações' },
+  { key: 'radios', label: 'Rádios (Geo)' },
+  { key: 'manutencoesRadios', label: 'Manutenções (Geo)' },
+  { key: 'responsaveisGeo', label: 'Responsáveis (Geo)' },
+  { key: 'cadastrosGeo', label: 'Cadastros (Geo)' },
 ];
 
 const ACOES = [
@@ -48,7 +52,7 @@ export function Acessos() {
 }
 
 function emptyUsuarioForm() {
-  return { nome: '', email: '', senha: '', cargo: '', perfilId: '' };
+  return { nome: '', email: '', senha: '', cargo: '', perfilId: '', empresaIds: [] };
 }
 
 function UsuariosTab() {
@@ -63,11 +67,26 @@ function UsuariosTab() {
   const usuarios = data?.data || [];
   const { data: perfisData } = useFetch('/perfis', {});
   const perfis = perfisData?.data || [];
+  const { data: empresasData } = useFetch('/empresas', {});
+  const empresas = empresasData?.data || [];
 
   function openNew() {
     setEditingId(null);
-    setForm({ ...emptyUsuarioForm(), perfilId: perfis.find((p) => p.nome === 'Consulta')?.id || perfis[0]?.id || '' });
+    setForm({
+      ...emptyUsuarioForm(),
+      perfilId: perfis.find((p) => p.nome === 'Consulta')?.id || perfis[0]?.id || '',
+      empresaIds: empresas.filter((e) => e.slug === 'ti').map((e) => e.id),
+    });
     setShowForm(true);
+  }
+
+  function toggleEmpresa(empresaId) {
+    setForm((f) => ({
+      ...f,
+      empresaIds: f.empresaIds.includes(empresaId)
+        ? f.empresaIds.filter((id) => id !== empresaId)
+        : [...f.empresaIds, empresaId],
+    }));
   }
 
   usePageHeader({
@@ -82,7 +101,10 @@ function UsuariosTab() {
 
   function openEdit(u) {
     setEditingId(u.id);
-    setForm({ nome: u.nome, email: u.email, senha: '', cargo: u.cargo || '', perfilId: u.perfilId || '' });
+    setForm({
+      nome: u.nome, email: u.email, senha: '', cargo: u.cargo || '', perfilId: u.perfilId || '',
+      empresaIds: (u.empresas || []).map((e) => e.id),
+    });
     setShowForm(true);
   }
 
@@ -167,7 +189,7 @@ function UsuariosTab() {
           <table className="data-table">
             <thead>
               <tr>
-                <th>Usuário</th><th>E-mail</th><th>Perfil</th><th>Último acesso</th><th>Status</th>
+                <th>Usuário</th><th>E-mail</th><th>Perfil</th><th>Empresas</th><th>Último acesso</th><th>Status</th>
                 <th style={{ width: 300 }}>Ações</th>
               </tr>
             </thead>
@@ -185,6 +207,14 @@ function UsuariosTab() {
                   </td>
                   <td className="mono text-secondary">{u.email}</td>
                   <td>{u.perfil}</td>
+                  <td>
+                    <div className="flex gap-8" style={{ flexWrap: 'wrap' }}>
+                      {(u.empresas || []).length === 0 && <span className="text-muted" style={{ fontSize: 12 }}>—</span>}
+                      {(u.empresas || []).map((e) => (
+                        <span key={e.id} className="badge badge-ativo">{e.nome}</span>
+                      ))}
+                    </div>
+                  </td>
                   <td className="text-muted">{u.ultimoAcesso ? formatDateTime(u.ultimoAcesso) : 'nunca acessou'}</td>
                   <td>
                     <div className="flex gap-8" style={{ flexWrap: 'wrap' }}>
@@ -248,6 +278,22 @@ function UsuariosTab() {
               <div className="field full">
                 <label>Cargo</label>
                 <input className="input" value={form.cargo} onChange={(e) => setForm((f) => ({ ...f, cargo: e.target.value }))} />
+              </div>
+              <div className="field full">
+                <label>Empresas que pode acessar</label>
+                <div className="flex gap-16" style={{ marginTop: 4 }}>
+                  {empresas.map((e) => (
+                    <label key={e.id} className="flex items-center gap-8" style={{ fontSize: 13, cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        className="checkbox"
+                        checked={form.empresaIds.includes(e.id)}
+                        onChange={() => toggleEmpresa(e.id)}
+                      />
+                      {e.nome}
+                    </label>
+                  ))}
+                </div>
               </div>
             </div>
             <div className="modal-footer" style={{ padding: '18px 0 0', border: 'none' }}>

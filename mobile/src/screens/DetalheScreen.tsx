@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Feather } from '@expo/vector-icons';
@@ -17,6 +17,7 @@ import { NovoTermoSheet } from '../sheets/NovoTermoSheet';
 import { Manutencao, statusManutencaoLabel } from '../types/models';
 import { useAuth } from '../context/AuthContext';
 import { useSheet } from '../context/SheetContext';
+import { useToast } from '../context/ToastContext';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 type DetalheRoute = RouteProp<RootStackParamList, 'Detalhe'>;
@@ -25,11 +26,13 @@ export function DetalheScreen() {
   const navigation = useNavigation<Nav>();
   const route = useRoute<DetalheRoute>();
   const insets = useSafeAreaInsets();
-  const { getEquipamento, getManutencoesDe } = useAppData();
-  const { podeCriar, podeEditar } = useAuth();
+  const { getEquipamento, getManutencoesDe, excluirEquipamento } = useAppData();
+  const { podeCriar, podeEditar, podeExcluir } = useAuth();
   const { openEditarEquipamento } = useSheet();
+  const { showToast } = useToast();
   const [osSheetVisible, setOsSheetVisible] = useState(false);
   const [termoSheetVisible, setTermoSheetVisible] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const equipamento = getEquipamento(route.params.id);
 
@@ -43,6 +46,31 @@ export function DetalheScreen() {
 
   const manutencoes = getManutencoesDe(equipamento.id);
   const warranty = warrantyInfo(equipamento.dataAquisicao, equipamento.dataGarantia);
+
+  function handleDelete() {
+    Alert.alert(
+      'Excluir equipamento',
+      `Excluir ${equipamento!.serial}? Essa ação não pode ser desfeita.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Excluir',
+          style: 'destructive',
+          onPress: async () => {
+            setDeleting(true);
+            try {
+              await excluirEquipamento(equipamento!.id);
+              navigation.goBack();
+            } catch (err: any) {
+              showToast(err?.message || 'Não foi possível excluir o equipamento.');
+            } finally {
+              setDeleting(false);
+            }
+          },
+        },
+      ]
+    );
+  }
 
   const fields: { label: string; value: string }[] = [
     { label: 'Tipo', value: equipamento.tipo.nome },
@@ -81,6 +109,11 @@ export function DetalheScreen() {
         {podeEditar('inventario') && (
           <Pressable style={styles.editBtn} onPress={() => openEditarEquipamento(equipamento)}>
             <Feather name="edit-2" size={16} color={colors.text} />
+          </Pressable>
+        )}
+        {podeExcluir('inventario') && (
+          <Pressable style={styles.editBtn} onPress={handleDelete} disabled={deleting}>
+            <Feather name="trash-2" size={16} color={colors.danger} />
           </Pressable>
         )}
       </View>

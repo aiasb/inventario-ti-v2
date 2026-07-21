@@ -33,6 +33,16 @@ async function loadPermissoesMap(perfilId) {
   return permissoes;
 }
 
+async function loadEmpresas(usuarioId) {
+  const { rows } = await query(
+    `SELECT e.id, e.nome, e.slug FROM usuario_empresas ue
+     JOIN empresas e ON e.id = ue.empresa_id
+     WHERE ue.usuario_id = $1 AND e.ativo = TRUE ORDER BY e.nome`,
+    [usuarioId]
+  );
+  return rows.map((r) => ({ id: r.id, nome: r.nome, slug: r.slug }));
+}
+
 const USER_SELECT = `
   SELECT u.*, p.nome AS perfil_nome
   FROM usuarios u
@@ -93,7 +103,11 @@ router.post(
     res.json({
       accessToken,
       refreshToken,
-      usuario: { ...sanitizeUser(user), permissoes: await loadPermissoesMap(user.perfil_id) },
+      usuario: {
+        ...sanitizeUser(user),
+        permissoes: await loadPermissoesMap(user.perfil_id),
+        empresas: await loadEmpresas(user.id),
+      },
     });
   })
 );
@@ -189,7 +203,13 @@ router.get(
     if (!req.user.id) return res.json({ usuario: req.user });
     const { rows } = await query(`${USER_SELECT} WHERE u.id = $1`, [req.user.id]);
     if (!rows[0]) throw unauthorized();
-    res.json({ usuario: { ...sanitizeUser(rows[0]), permissoes: await loadPermissoesMap(rows[0].perfil_id) } });
+    res.json({
+      usuario: {
+        ...sanitizeUser(rows[0]),
+        permissoes: await loadPermissoesMap(rows[0].perfil_id),
+        empresas: await loadEmpresas(rows[0].id),
+      },
+    });
   })
 );
 

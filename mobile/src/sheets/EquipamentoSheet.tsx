@@ -18,7 +18,14 @@ const SEM_RESPONSAVEL = 'Nenhum (fica em estoque)';
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 function toDateInput(iso: string | null | undefined): string {
-  return iso ? iso.slice(0, 10) : '';
+  if (!iso) return '';
+  const [year, month, day] = iso.slice(0, 10).split('-');
+  return `${day}-${month}-${year}`;
+}
+
+function toISODate(display: string): string {
+  const [day, month, year] = display.split('-');
+  return `${year}-${month}-${day}`;
 }
 
 function emptyState() {
@@ -36,7 +43,7 @@ function emptyState() {
   };
 }
 
-const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const DATE_RE = /^\d{2}-\d{2}-\d{4}$/;
 
 export function EquipamentoSheet() {
   const { equipamentoSheetVisible, editingEquipamento, closeEquipamentoSheet } = useSheet();
@@ -97,8 +104,8 @@ export function EquipamentoSheet() {
       const digits = form.imei.replace(/\D/g, '');
       if (digits.length < 14 || digits.length > 16) missing.push('IMEI (14–16 dígitos)');
     }
-    if (form.dataAquisicao && !DATE_RE.test(form.dataAquisicao)) missing.push('Data de aquisição (AAAA-MM-DD)');
-    if (form.dataGarantia && !DATE_RE.test(form.dataGarantia)) missing.push('Garantia até (AAAA-MM-DD)');
+    if (form.dataAquisicao && !DATE_RE.test(form.dataAquisicao)) missing.push('Data de aquisição (DD-MM-AAAA)');
+    if (form.dataGarantia && !DATE_RE.test(form.dataGarantia)) missing.push('Garantia até (DD-MM-AAAA)');
 
     if (missing.length > 0) {
       showToast(`Preencha: ${missing.join(', ')}`);
@@ -120,8 +127,8 @@ export function EquipamentoSheet() {
         responsavelId: responsavel?.id || null,
         setorId: setor?.id || null,
         status: (responsavel ? 'Ativo' : 'Estoque') as 'Ativo' | 'Estoque',
-        dataAquisicao: form.dataAquisicao || null,
-        dataGarantia: form.dataGarantia || null,
+        dataAquisicao: form.dataAquisicao ? toISODate(form.dataAquisicao) : null,
+        dataGarantia: form.dataGarantia ? toISODate(form.dataGarantia) : null,
         observacoes: form.observacoes || null,
       };
 
@@ -199,7 +206,7 @@ export function EquipamentoSheet() {
           <View style={styles.col}>
             <FormField
               label="Data de aquisição"
-              placeholder="AAAA-MM-DD"
+              placeholder="DD-MM-AAAA"
               keyboardType="numbers-and-punctuation"
               value={form.dataAquisicao}
               onChangeText={(v) => set('dataAquisicao', v)}
@@ -208,7 +215,7 @@ export function EquipamentoSheet() {
           <View style={styles.col}>
             <FormField
               label="Garantia até"
-              placeholder="AAAA-MM-DD"
+              placeholder="DD-MM-AAAA"
               keyboardType="numbers-and-punctuation"
               value={form.dataGarantia}
               onChangeText={(v) => set('dataGarantia', v)}

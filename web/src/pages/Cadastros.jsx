@@ -35,6 +35,14 @@ const TABS = [
       { key: 'telefone', label: 'Telefone' },
     ],
   },
+  {
+    // Compartilhado com Geotecnologia (ver CadastrosGeo.jsx) — mesma tabela
+    // status_ativo no backend, editável por quem tiver acesso a qualquer
+    // uma das duas telas de Cadastros.
+    key: 'status-ativo', label: 'Status',
+    fields: [{ name: 'nome', label: 'Nome', required: true }],
+    columns: [{ key: 'nome', label: 'Nome' }],
+  },
 ];
 
 export function Cadastros() {

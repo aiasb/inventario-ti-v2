@@ -14,7 +14,7 @@ import { radius, spacing, touchTarget } from '../theme/spacing';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { repository } from '../data/repository';
-import { MODULOS, ModulePermission, Perfil, UsuarioAdmin } from '../types/models';
+import { Empresa, MODULOS, ModulePermission, Perfil, UsuarioAdmin } from '../types/models';
 import { RootStackParamList } from '../navigation/types';
 import { initials } from '../utils/format';
 
@@ -58,7 +58,7 @@ export function AcessosScreen() {
 }
 
 function emptyUsuarioForm() {
-  return { nome: '', email: '', senha: '', cargo: '', perfilId: null as number | null, perfilNome: '' };
+  return { nome: '', email: '', senha: '', cargo: '', perfilId: null as number | null, perfilNome: '', empresaIds: [] as number[] };
 }
 
 function UsuariosTab() {
@@ -68,6 +68,7 @@ function UsuariosTab() {
 
   const [usuarios, setUsuarios] = useState<UsuarioAdmin[]>([]);
   const [perfis, setPerfis] = useState<Perfil[]>([]);
+  const [empresas, setEmpresas] = useState<Empresa[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -78,9 +79,10 @@ function UsuariosTab() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [u, p] = await Promise.all([repository.listUsuarios(), repository.listPerfis()]);
+      const [u, p, e] = await Promise.all([repository.listUsuarios(), repository.listPerfis(), repository.listEmpresas()]);
       setUsuarios(u);
       setPerfis(p);
+      setEmpresas(e);
     } finally {
       setLoading(false);
     }
@@ -93,14 +95,27 @@ function UsuariosTab() {
   function openNew() {
     setEditingId(null);
     const consulta = perfis.find((p) => p.nome === 'Consulta') || perfis[0];
-    setForm({ ...emptyUsuarioForm(), perfilId: consulta?.id ?? null, perfilNome: consulta?.nome || '' });
+    const ti = empresas.filter((e) => e.slug === 'ti').map((e) => e.id);
+    setForm({ ...emptyUsuarioForm(), perfilId: consulta?.id ?? null, perfilNome: consulta?.nome || '', empresaIds: ti });
     setShowForm(true);
   }
 
   function openEdit(u: UsuarioAdmin) {
     setEditingId(u.id);
-    setForm({ nome: u.nome, email: u.email, senha: '', cargo: u.cargo || '', perfilId: u.perfilId, perfilNome: u.perfil });
+    setForm({
+      nome: u.nome, email: u.email, senha: '', cargo: u.cargo || '', perfilId: u.perfilId, perfilNome: u.perfil,
+      empresaIds: (u.empresas || []).map((e) => e.id),
+    });
     setShowForm(true);
+  }
+
+  function toggleEmpresa(empresaId: number) {
+    setForm((f) => ({
+      ...f,
+      empresaIds: f.empresaIds.includes(empresaId)
+        ? f.empresaIds.filter((id) => id !== empresaId)
+        : [...f.empresaIds, empresaId],
+    }));
   }
 
   async function handleSave() {
@@ -110,7 +125,10 @@ function UsuariosTab() {
     }
     setSaving(true);
     try {
-      const body: any = { nome: form.nome.trim(), email: form.email.trim(), cargo: form.cargo.trim() || undefined, perfilId: form.perfilId || undefined };
+      const body: any = {
+        nome: form.nome.trim(), email: form.email.trim(), cargo: form.cargo.trim() || undefined,
+        perfilId: form.perfilId || undefined, empresaIds: form.empresaIds,
+      };
       if (form.senha.trim()) body.senha = form.senha.trim();
       if (editingId) {
         await repository.updateUsuario(editingId, body);
@@ -201,6 +219,14 @@ function UsuariosTab() {
                 <View style={{ flex: 1 }}>
                   <Text style={styles.rowTitle}>{item.nome}</Text>
                   <Text style={styles.rowSubtitle}>{item.email} · {item.perfil}</Text>
+                  <View style={styles.empresaChipsRow}>
+                    {(item.empresas || []).length === 0 && <Text style={styles.rowSubtitle}>sem empresa</Text>}
+                    {(item.empresas || []).map((e) => (
+                      <View key={e.id} style={styles.empresaChip}>
+                        <Text style={styles.empresaChipText}>{e.nome}</Text>
+                      </View>
+                    ))}
+                  </View>
                 </View>
                 <View style={{ alignItems: 'flex-end', gap: 4 }}>
                   <View style={[styles.badge, { backgroundColor: item.ativo ? 'rgba(87,178,94,0.14)' : 'rgba(139,150,162,0.14)' }]}>
@@ -274,6 +300,18 @@ function UsuariosTab() {
             }}
           />
           <FormField label="Cargo" value={form.cargo} onChangeText={(v) => setForm((f) => ({ ...f, cargo: v }))} />
+
+          <Text style={styles.fieldLabel}>Empresas que pode acessar</Text>
+          <View style={styles.empresaCheckboxRow}>
+            {empresas.map((e) => (
+              <Pressable key={e.id} style={styles.empresaCheckboxItem} onPress={() => toggleEmpresa(e.id)}>
+                <View style={[styles.checkbox, form.empresaIds.includes(e.id) && styles.checkboxChecked]}>
+                  {form.empresaIds.includes(e.id) && <Feather name="check" size={12} color="#06210b" />}
+                </View>
+                <Text style={styles.empresaCheckboxText}>{e.nome}</Text>
+              </Pressable>
+            ))}
+          </View>
         </ScrollView>
         <View style={styles.actions}>
           <Pressable style={styles.cancelBtn} onPress={() => setShowForm(false)}>
@@ -555,4 +593,14 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   saveText: { fontFamily: fonts.bodySemiBold, fontSize: 14, color: '#06210b' },
+  empresaChipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 },
+  empresaChip: {
+    paddingHorizontal: 8, paddingVertical: 2, borderRadius: radius.pill,
+    backgroundColor: 'rgba(87,178,94,0.14)', borderWidth: 1, borderColor: 'rgba(87,178,94,0.32)',
+  },
+  empresaChipText: { fontFamily: fonts.monoMedium, fontSize: 9.5, color: colors.accent },
+  fieldLabel: { fontFamily: fonts.bodyMedium, fontSize: 12.5, color: colors.textSecondary, marginTop: spacing.sm, marginBottom: 6 },
+  empresaCheckboxRow: { flexDirection: 'row', gap: spacing.lg, marginBottom: spacing.md },
+  empresaCheckboxItem: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  empresaCheckboxText: { fontFamily: fonts.bodyRegular, fontSize: 13, color: colors.text },
 });

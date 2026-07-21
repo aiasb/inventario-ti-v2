@@ -13,7 +13,11 @@ export async function saveQueue(items: StoredQueueItem[]): Promise<void> {
 }
 
 export async function loadTempIdMaps(): Promise<TempIdMaps> {
-  return loadJson<TempIdMaps>(TEMP_IDS_KEY, { equipamento: {}, termo: {} });
+  // Mescla com o default: um app já instalado pode ter persistido o mapa
+  // antes da chave "radio" existir, e faltar a chave quebraria o acesso
+  // `tempIds.radio[...]` em runtime.
+  const loaded = await loadJson<Partial<TempIdMaps>>(TEMP_IDS_KEY, {});
+  return { equipamento: {}, termo: {}, radio: {}, ...loaded };
 }
 
 export async function saveTempIdMaps(maps: TempIdMaps): Promise<void> {

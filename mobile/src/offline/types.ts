@@ -1,4 +1,13 @@
-import { EditarEquipamentoInput, NovaManutencaoInput, NovoEquipamentoInput, NovoTermoInput } from '../data/repository';
+import {
+  EditarEquipamentoInput,
+  EditarRadioInput,
+  NovaManutencaoInput,
+  NovaManutencaoRadioInput,
+  NovoEquipamentoInput,
+  NovoRadioInput,
+  NovoTermoInput,
+} from '../data/repository';
+import { StatusManutencao } from '../types/models';
 
 /**
  * Uma operação de mutação enfileirada para rodar quando a rede voltar.
@@ -11,11 +20,18 @@ import { EditarEquipamentoInput, NovaManutencaoInput, NovoEquipamentoInput, Novo
 export type QueuedOperation =
   | { kind: 'criarEquipamento'; tempId: number; input: NovoEquipamentoInput }
   | { kind: 'editarEquipamento'; equipamentoId: number; input: EditarEquipamentoInput }
+  | { kind: 'excluirEquipamento'; equipamentoId: number }
   | { kind: 'abrirOs'; tempId: number; input: NovaManutencaoInput }
   | { kind: 'criarTermo'; tempId: number; input: NovoTermoInput }
   | { kind: 'alternarAssinaturaTermo'; termoId: number; assinado: boolean }
   | { kind: 'alternarDevolucaoTermo'; termoId: number; devolvido: boolean }
-  | { kind: 'excluirTermo'; termoId: number };
+  | { kind: 'excluirTermo'; termoId: number }
+  | { kind: 'criarRadio'; tempId: number; input: NovoRadioInput }
+  | { kind: 'editarRadio'; radioId: number; input: EditarRadioInput }
+  | { kind: 'excluirRadio'; radioId: number }
+  | { kind: 'abrirOsRadio'; tempId: number; input: NovaManutencaoRadioInput }
+  | { kind: 'alterarStatusOs'; manutencaoId: number; status: StatusManutencao }
+  | { kind: 'alterarStatusOsRadio'; manutencaoRadioId: number; status: StatusManutencao };
 
 export type QueuedOperationKind = QueuedOperation['kind'];
 
@@ -32,6 +48,7 @@ export interface StoredQueueItem {
 export interface TempIdMaps {
   equipamento: Record<number, number>;
   termo: Record<number, number>;
+  radio: Record<number, number>;
 }
 
 export interface SyncState {

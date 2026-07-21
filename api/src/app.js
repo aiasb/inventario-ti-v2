@@ -21,6 +21,14 @@ import tiposEquipamentoRoutes from './routes/tiposEquipamento.routes.js';
 import fornecedoresRoutes from './routes/fornecedores.routes.js';
 import responsaveisRoutes from './routes/responsaveis.routes.js';
 import apiTokensRoutes from './routes/apiTokens.routes.js';
+import radiosRoutes from './routes/radios.routes.js';
+import manutencoesRadiosRoutes from './routes/manutencoesRadios.routes.js';
+import areasGeoRoutes from './routes/areasGeo.routes.js';
+import frotasRoutes from './routes/frotas.routes.js';
+import responsaveisGeoRoutes from './routes/responsaveisGeo.routes.js';
+import empresasRoutes from './routes/empresas.routes.js';
+import statusAtivoRoutes from './routes/statusAtivo.routes.js';
+import insumosRoutes from './routes/insumos.routes.js';
 
 export function createApp() {
   const app = express();
@@ -56,6 +64,14 @@ export function createApp() {
   v1.use('/fornecedores', fornecedoresRoutes);
   v1.use('/responsaveis', responsaveisRoutes);
   v1.use('/api-tokens', apiTokensRoutes);
+  v1.use('/radios', radiosRoutes);
+  v1.use('/manutencoes-radios', manutencoesRadiosRoutes);
+  v1.use('/areas-geo', areasGeoRoutes);
+  v1.use('/frotas', frotasRoutes);
+  v1.use('/responsaveis-geo', responsaveisGeoRoutes);
+  v1.use('/empresas', empresasRoutes);
+  v1.use('/status-ativo', statusAtivoRoutes);
+  v1.use('/insumos', insumosRoutes);
   app.use('/api/v1', v1);
 
   app.use(notFoundHandler);

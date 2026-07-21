@@ -14,10 +14,10 @@ import { spacing } from '../theme/spacing';
 import { useAppData } from '../context/AppDataContext';
 import { usePreferences } from '../context/PreferencesContext';
 import { useRefreshControl } from '../hooks/useRefreshControl';
-import { RootStackParamList, TabParamList } from '../navigation/types';
+import { RootStackParamList, TabParamListTI } from '../navigation/types';
 
 type Nav = CompositeNavigationProp<
-  BottomTabNavigationProp<TabParamList, 'Inicio'>,
+  BottomTabNavigationProp<TabParamListTI, 'Inicio'>,
   NativeStackNavigationProp<RootStackParamList>
 >;
 

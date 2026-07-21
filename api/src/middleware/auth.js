@@ -69,3 +69,48 @@ export const requirePermission = (modulo, acao) =>
     }
     next();
   });
+
+/**
+ * Como requirePermission, mas libera se o perfil tiver a permissão em
+ * QUALQUER um dos módulos informados — usado por cadastros compartilhados
+ * entre TI e Geotecnologia (ex.: Status), geridos tanto por quem só tem
+ * "cadastros" (TI) quanto por quem só tem "cadastrosGeo" (Geotecnologia).
+ */
+export const requireAnyPermission = (modulos, acao) =>
+  asyncHandler(async (req, res, next) => {
+    if (req.user?.viaApiToken) return next();
+    const column = ACAO_COLUMN[acao];
+    if (!req.user?.perfilId || !column) {
+      throw forbidden('Seu perfil não tem permissão para executar esta ação.');
+    }
+    const { rows } = await query(
+      `SELECT 1 FROM perfil_permissoes WHERE perfil_id = $1 AND modulo = ANY($2::text[]) AND ${column} = TRUE`,
+      [req.user.perfilId, modulos]
+    );
+    if (!rows[0]) {
+      throw forbidden('Seu perfil não tem permissão para executar esta ação.');
+    }
+    next();
+  });
+
+/**
+ * Verifica se o usuário autenticado tem acesso à empresa informada (tabela
+ * usuario_empresas) — controla se ele pode ver/editar dados de TI ou de
+ * Geotecnologia, independente do que seu perfil permite dentro do módulo.
+ * Tokens de API de longa duração sempre têm acesso total.
+ */
+export const requireEmpresa = (slug) =>
+  asyncHandler(async (req, res, next) => {
+    if (req.user?.viaApiToken) return next();
+    if (!req.user?.id) throw forbidden('Você não tem acesso a esta empresa.');
+    const { rows } = await query(
+      `SELECT 1 FROM usuario_empresas ue
+       JOIN empresas e ON e.id = ue.empresa_id
+       WHERE ue.usuario_id = $1 AND e.slug = $2`,
+      [req.user.id, slug]
+    );
+    if (!rows[0]) {
+      throw forbidden('Você não tem acesso a esta empresa.');
+    }
+    next();
+  });

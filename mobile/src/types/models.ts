@@ -23,6 +23,15 @@ export interface Setor {
   ativo: boolean;
 }
 
+/** Cadastro compartilhado entre TI e Geotecnologia (ver plano de
+ * multi-empresa) — usado para popular o seletor de status de
+ * equipamentos/rádios em vez de um enum fixo. */
+export interface StatusAtivo {
+  id: number;
+  nome: string;
+  ativo: boolean;
+}
+
 export interface Fornecedor {
   id: number;
   nome: string;
@@ -39,6 +48,12 @@ export interface Responsavel {
   cpf: string | null;
   setorId: number | null;
   ativo: boolean;
+}
+
+export interface Empresa {
+  id: number;
+  nome: string;
+  slug: string;
 }
 
 export interface ModulePermission {
@@ -58,6 +73,7 @@ export interface UsuarioAdmin {
   ativo: boolean;
   bloqueado: boolean;
   ultimoAcesso: string | null;
+  empresas: Empresa[];
 }
 
 export interface Perfil {
@@ -76,6 +92,10 @@ export const MODULOS: { key: string; label: string }[] = [
   { key: 'acessos', label: 'Acessos' },
   { key: 'cadastros', label: 'Cadastros' },
   { key: 'configuracoes', label: 'Configurações' },
+  { key: 'radios', label: 'Rádios (Geotecnologia)' },
+  { key: 'manutencoesRadios', label: 'Manutenções de Rádios' },
+  { key: 'responsaveisGeo', label: 'Responsáveis (Geotecnologia)' },
+  { key: 'cadastrosGeo', label: 'Cadastros (Geotecnologia)' },
 ];
 
 export interface Equipamento {
@@ -146,6 +166,74 @@ export interface Termo {
   modelo: { id: number; nome: string; texto: string | null; temArquivo: boolean } | null;
   responsavel: { id: number; nome: string; cpf: string | null; matricula: string | null; setor: string | null } | null;
   equipamentos: { id: number; serial: string; modelo: string; hostname: string | null; imei: string | null; tipo: string | null }[];
+  createdAt: string;
+  updatedAt: string;
+  /** Só existe localmente — ver Equipamento.pendingSync. */
+  pendingSync?: boolean;
+}
+
+// ---- Geotecnologia (rádios) ------------------------------------------------
+// Cadastros próprios, independentes de Setor/Responsavel de TI (ver plano
+// de multi-empresa) — "Área" e "Responsável" aqui são entidades separadas.
+
+export interface Frota {
+  id: number;
+  numero: string;
+  nome: string;
+  ativo: boolean;
+}
+
+export interface AreaGeo {
+  id: number;
+  nome: string;
+  ativo: boolean;
+}
+
+export interface ResponsavelGeo {
+  id: number;
+  nome: string;
+  matricula: string | null;
+  cpf: string | null;
+  areaId: number | null;
+  ativo: boolean;
+}
+
+export interface Radio {
+  id: number;
+  numeroSerie: string;
+  modelo: string | null;
+  idDigital: string | null;
+  idAnalogico: string | null;
+  frota: Frota | null;
+  area: AreaGeo | null;
+  responsavel: { id: number; nome: string } | null;
+  status: StatusEquipamento;
+  dataAquisicao: string | null; // ISO date
+  observacoes: string | null;
+  createdAt: string;
+  updatedAt: string;
+  /** Só existe localmente — ver Equipamento.pendingSync. */
+  pendingSync?: boolean;
+}
+
+export interface Insumo {
+  id: number;
+  nome: string;
+  ativo: boolean;
+}
+
+export interface ManutencaoRadio {
+  id: number;
+  os: string;
+  radio: { id: number; numeroSerie: string; modelo: string | null };
+  titulo: string;
+  insumo: { id: number; nome: string } | null;
+  tipo: TipoManutencao;
+  tecnico: string | null;
+  custo: number | null;
+  descricao: string | null;
+  data: string; // ISO date
+  status: StatusManutencao;
   createdAt: string;
   updatedAt: string;
   /** Só existe localmente — ver Equipamento.pendingSync. */

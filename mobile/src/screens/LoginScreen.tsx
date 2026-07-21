@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Image,
   KeyboardAvoidingView,
@@ -10,26 +10,44 @@ import {
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { FormField } from '../components/FormField';
+import { ToggleRow } from '../components/SettingRow';
 import { colors } from '../theme/colors';
 import { fonts } from '../theme/typography';
 import { radius, spacing, touchTarget } from '../theme/spacing';
 import { useAuth } from '../context/AuthContext';
-import { getDefaultApiUrl } from '../api/client';
+import { getDefaultApiUrl, getSavedCredentials, saveCredentials, clearSavedCredentials } from '../api/client';
 
 export function LoginScreen() {
   const { login, serverUrl, updateServerUrl } = useAuth();
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
+  const [lembrar, setLembrar] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [showServerField, setShowServerField] = useState(false);
   const [serverInput, setServerInput] = useState(serverUrl);
+
+  useEffect(() => {
+    (async () => {
+      const saved = await getSavedCredentials();
+      if (saved) {
+        setEmail(saved.email);
+        setSenha(saved.senha);
+        setLembrar(true);
+      }
+    })();
+  }, []);
 
   async function handleSubmit() {
     setError('');
     setLoading(true);
     try {
       await login(email.trim(), senha);
+      if (lembrar) {
+        await saveCredentials(email.trim(), senha);
+      } else {
+        await clearSavedCredentials();
+      }
     } catch (err: any) {
       setError(err?.message || 'Não foi possível entrar.');
     } finally {
@@ -74,6 +92,14 @@ export function LoginScreen() {
           placeholder="••••••••"
           value={senha}
           onChangeText={setSenha}
+        />
+
+        <ToggleRow
+          title="Lembrar minhas credenciais"
+          subtitle="Preenche e-mail e senha automaticamente da próxima vez"
+          value={lembrar}
+          onValueChange={setLembrar}
+          isLast
         />
 
         <Pressable

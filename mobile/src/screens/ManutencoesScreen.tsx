@@ -5,6 +5,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Feather } from '@expo/vector-icons';
 import { Header } from '../components/Header';
 import { Chip } from '../components/Chip';
+import { StatusOsSheet } from '../components/StatusOsSheet';
 import { colors, withAlpha } from '../theme/colors';
 import { fonts } from '../theme/typography';
 import { radius, spacing } from '../theme/spacing';
@@ -29,12 +30,18 @@ function statusManutencaoColor(status: StatusManutencao): string {
 
 export function ManutencoesScreen() {
   const navigation = useNavigation<Nav>();
-  const { manutencoes } = useAppData();
-  const { podeCriar } = useAuth();
+  const { manutencoes, alterarStatusOs } = useAppData();
+  const { podeCriar, podeEditar } = useAuth();
   const { refreshing, onRefresh } = useRefreshControl();
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<Filter>('Todos');
   const [osSheetVisible, setOsSheetVisible] = useState(false);
+  const [statusSheetItem, setStatusSheetItem] = useState<Manutencao | null>(null);
+
+  function changeStatus(item: Manutencao) {
+    if (!podeEditar('manutencoes')) return;
+    setStatusSheetItem(item);
+  }
 
   const counts = useMemo(() => {
     const map: Record<Filter, number> = { Todos: manutencoes.length, Aberta: 0, 'Em andamento': 0, Concluida: 0 };
@@ -67,12 +74,19 @@ export function ManutencoesScreen() {
       >
         <View style={styles.rowTop}>
           <Text style={styles.os}>{item.os}</Text>
-          <View style={[styles.statusBadge, { backgroundColor: withAlpha(color, 0.14), borderColor: withAlpha(color, 0.32) }]}>
+          <Pressable
+            disabled={!!item.pendingSync}
+            onPress={() => changeStatus(item)}
+            style={[styles.statusBadge, { backgroundColor: withAlpha(color, 0.14), borderColor: withAlpha(color, 0.32) }]}
+          >
             <View style={[styles.statusDot, { backgroundColor: color }]} />
             <Text style={[styles.statusText, { color }]}>
               {item.pendingSync ? 'Aguardando sincronização' : statusManutencaoLabel(item.status)}
             </Text>
-          </View>
+            {podeEditar('manutencoes') && !item.pendingSync && (
+              <Feather name="chevron-down" size={11} color={color} />
+            )}
+          </Pressable>
         </View>
         <Text style={styles.titulo} numberOfLines={1}>{item.titulo}</Text>
         <Text style={styles.meta} numberOfLines={1}>
@@ -143,6 +157,14 @@ export function ManutencoesScreen() {
       />
 
       <NovaOsSheet visible={osSheetVisible} onClose={() => setOsSheetVisible(false)} />
+
+      <StatusOsSheet
+        visible={!!statusSheetItem}
+        onClose={() => setStatusSheetItem(null)}
+        os={statusSheetItem?.os || ''}
+        currentStatus={statusSheetItem?.status || 'Aberta'}
+        onConfirm={(status) => statusSheetItem && alterarStatusOs(statusSheetItem.id, status)}
+      />
     </View>
   );
 }

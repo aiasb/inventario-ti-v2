@@ -7,7 +7,7 @@ import { loadQueue, saveQueue, loadTempIdMaps, saveTempIdMaps } from './queue';
 import { QueuedOperation, StoredQueueItem, SyncState, TempIdMaps } from './types';
 
 let queue: StoredQueueItem[] = [];
-let tempIds: TempIdMaps = { equipamento: {}, termo: {} };
+let tempIds: TempIdMaps = { equipamento: {}, termo: {}, radio: {} };
 let initialized = false;
 let flushing = false;
 let timer: ReturnType<typeof setInterval> | null = null;
@@ -88,7 +88,7 @@ export async function init(): Promise<void> {
   void flush();
 }
 
-function resolveId(kind: 'equipamento' | 'termo', id: number): number {
+function resolveId(kind: 'equipamento' | 'termo' | 'radio', id: number): number {
   if (id >= 0) return id;
   return tempIds[kind][id] ?? id;
 }
@@ -123,6 +123,11 @@ async function dispatchOnce(item: StoredQueueItem): Promise<DispatchOk | Dispatc
         await repository.updateEquipamento(id, item.op.input, idem);
         return { ok: true };
       }
+      case 'excluirEquipamento': {
+        const id = resolveId('equipamento', item.op.equipamentoId);
+        await repository.deleteEquipamento(id, idem);
+        return { ok: true };
+      }
       case 'abrirOs': {
         const equipamentoId = resolveId('equipamento', item.op.input.equipamentoId);
         await repository.createManutencao({ ...item.op.input, equipamentoId }, idem);
@@ -148,6 +153,35 @@ async function dispatchOnce(item: StoredQueueItem): Promise<DispatchOk | Dispatc
       case 'excluirTermo': {
         const id = resolveId('termo', item.op.termoId);
         await repository.deleteTermo(id, idem);
+        return { ok: true };
+      }
+      case 'criarRadio': {
+        const created = await repository.createRadio(item.op.input, idem);
+        tempIds.radio[item.op.tempId] = created.id;
+        await saveTempIdMaps(tempIds);
+        return { ok: true, tempId: item.op.tempId, realId: created.id };
+      }
+      case 'editarRadio': {
+        const id = resolveId('radio', item.op.radioId);
+        await repository.updateRadio(id, item.op.input, idem);
+        return { ok: true };
+      }
+      case 'excluirRadio': {
+        const id = resolveId('radio', item.op.radioId);
+        await repository.deleteRadio(id, idem);
+        return { ok: true };
+      }
+      case 'abrirOsRadio': {
+        const radioId = resolveId('radio', item.op.input.radioId);
+        await repository.createManutencaoRadio({ ...item.op.input, radioId }, idem);
+        return { ok: true };
+      }
+      case 'alterarStatusOs': {
+        await repository.updateManutencaoStatus(item.op.manutencaoId, item.op.status, idem);
+        return { ok: true };
+      }
+      case 'alterarStatusOsRadio': {
+        await repository.updateManutencaoRadioStatus(item.op.manutencaoRadioId, item.op.status, idem);
         return { ok: true };
       }
     }
@@ -241,8 +275,8 @@ export async function discardItem(id: string): Promise<void> {
 /** Cancela uma criação ainda não sincronizada (usado quando o usuário exclui,
  * antes de a rede voltar, algo que ele mesmo criou offline) — como nada foi
  * enviado ao servidor ainda, não há nada para desfazer lá, só remover da fila. */
-export async function cancelPendingCreate(kind: 'equipamento' | 'termo', tempId: number): Promise<void> {
-  const opKind = kind === 'equipamento' ? 'criarEquipamento' : 'criarTermo';
+export async function cancelPendingCreate(kind: 'equipamento' | 'termo' | 'radio', tempId: number): Promise<void> {
+  const opKind = kind === 'equipamento' ? 'criarEquipamento' : kind === 'termo' ? 'criarTermo' : 'criarRadio';
   const item = queue.find((i) => i.op.kind === opKind && 'tempId' in i.op && i.op.tempId === tempId);
   if (item) await discardItem(item.id);
 }
@@ -250,6 +284,7 @@ export async function cancelPendingCreate(kind: 'equipamento' | 'termo', tempId:
 function dependsOnTempId(op: QueuedOperation, tempId: number): boolean {
   switch (op.kind) {
     case 'editarEquipamento':
+    case 'excluirEquipamento':
       return op.equipamentoId === tempId;
     case 'abrirOs':
     case 'criarTermo':
@@ -258,6 +293,11 @@ function dependsOnTempId(op: QueuedOperation, tempId: number): boolean {
     case 'alternarDevolucaoTermo':
     case 'excluirTermo':
       return op.termoId === tempId;
+    case 'editarRadio':
+    case 'excluirRadio':
+      return op.radioId === tempId;
+    case 'abrirOsRadio':
+      return op.input.radioId === tempId;
     default:
       return false;
   }

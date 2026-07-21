@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
-import { query } from '../db.js';
+import { query, pool } from '../db.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { notFound, badRequest } from '../utils/errors.js';
 import { parsePagination, buildSort, paginatedResponse } from '../utils/pagination.js';
@@ -10,7 +10,22 @@ const router = Router();
 
 const BASE_SELECT = `SELECT u.*, p.nome AS perfil_nome FROM usuarios u JOIN perfis p ON p.id = u.perfil_id`;
 
-function mapRow(r) {
+async function loadEmpresasMap(usuarioIds) {
+  if (usuarioIds.length === 0) return {};
+  const { rows } = await query(
+    `SELECT ue.usuario_id, e.id, e.nome, e.slug FROM usuario_empresas ue
+     JOIN empresas e ON e.id = ue.empresa_id
+     WHERE ue.usuario_id = ANY($1::int[]) ORDER BY e.nome`,
+    [usuarioIds]
+  );
+  const map = {};
+  for (const r of rows) {
+    (map[r.usuario_id] ??= []).push({ id: r.id, nome: r.nome, slug: r.slug });
+  }
+  return map;
+}
+
+function mapRowWithEmpresas(r, empresasMap) {
   return {
     id: r.id,
     nome: r.nome,
@@ -21,9 +36,26 @@ function mapRow(r) {
     ativo: r.ativo,
     bloqueado: r.bloqueado,
     ultimoAcesso: r.ultimo_acesso,
+    empresas: empresasMap[r.id] || [],
     createdAt: r.created_at,
     updatedAt: r.updated_at,
   };
+}
+
+async function mapRow(r) {
+  const empresasMap = await loadEmpresasMap([r.id]);
+  return mapRowWithEmpresas(r, empresasMap);
+}
+
+async function saveEmpresas(client, usuarioId, empresaIds) {
+  if (!Array.isArray(empresaIds)) return;
+  await client.query(`DELETE FROM usuario_empresas WHERE usuario_id = $1`, [usuarioId]);
+  for (const empresaId of empresaIds) {
+    await client.query(
+      `INSERT INTO usuario_empresas (usuario_id, empresa_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+      [usuarioId, empresaId]
+    );
+  }
 }
 
 async function resolvePerfilId(perfilId) {
@@ -36,6 +68,14 @@ async function resolvePerfilId(perfilId) {
 async function defaultPerfilId() {
   const { rows } = await query(`SELECT id FROM perfis WHERE nome = 'Consulta' AND deleted_at IS NULL LIMIT 1`);
   return rows[0]?.id ?? null;
+}
+
+// Usuário novo sem "empresaIds" explícito recebe acesso à TI por padrão —
+// preserva o comportamento anterior (só existia TI) para quem não mexer
+// nesse campo ao criar um usuário.
+async function defaultEmpresaIds() {
+  const { rows } = await query(`SELECT id FROM empresas WHERE slug = 'ti'`);
+  return rows.map((r) => r.id);
 }
 
 const SORT_COLUMNS = { nome: 'u.nome', email: 'u.email', perfil: 'p.nome', ultimoAcesso: 'u.ultimo_acesso' };
@@ -73,7 +113,8 @@ router.get(
       `${BASE_SELECT} ${where} ORDER BY ${orderBy} LIMIT $${params.length - 1} OFFSET $${params.length}`,
       params
     );
-    res.json(paginatedResponse({ data: rows.map(mapRow), total, page, limit }));
+    const empresasMap = await loadEmpresasMap(rows.map((r) => r.id));
+    res.json(paginatedResponse({ data: rows.map((r) => mapRowWithEmpresas(r, empresasMap)), total, page, limit }));
   })
 );
 
@@ -84,7 +125,7 @@ router.get(
   asyncHandler(async (req, res) => {
     const { rows } = await query(`${BASE_SELECT} WHERE u.id = $1 AND u.deleted_at IS NULL`, [req.params.id]);
     if (!rows[0]) throw notFound('Usuário');
-    res.json(mapRow(rows[0]));
+    res.json(await mapRow(rows[0]));
   })
 );
 
@@ -93,18 +134,31 @@ router.post(
   requireAuth,
   requirePermission('acessos', 'criar'),
   asyncHandler(async (req, res) => {
-    const { nome, email, senha, cargo, perfilId } = req.body;
+    const { nome, email, senha, cargo, perfilId, empresaIds } = req.body;
     if (!nome || !email || !senha) throw badRequest('Campos obrigatórios: nome, email, senha.');
     const resolvedPerfilId = (await resolvePerfilId(perfilId)) ?? (await defaultPerfilId());
     if (!resolvedPerfilId) throw badRequest('Nenhum perfil de acesso disponível. Crie um perfil antes de cadastrar usuários.');
 
     const senhaHash = await bcrypt.hash(senha, 10);
-    const { rows } = await query(
-      `INSERT INTO usuarios (nome, email, senha_hash, cargo, perfil_id) VALUES ($1,$2,$3,$4,$5) RETURNING id`,
-      [nome, email.toLowerCase().trim(), senhaHash, cargo || null, resolvedPerfilId]
-    );
-    const { rows: created } = await query(`${BASE_SELECT} WHERE u.id = $1`, [rows[0].id]);
-    res.status(201).json(mapRow(created[0]));
+    const client = await pool.connect();
+    let novoId;
+    try {
+      await client.query('BEGIN');
+      const { rows } = await client.query(
+        `INSERT INTO usuarios (nome, email, senha_hash, cargo, perfil_id) VALUES ($1,$2,$3,$4,$5) RETURNING id`,
+        [nome, email.toLowerCase().trim(), senhaHash, cargo || null, resolvedPerfilId]
+      );
+      novoId = rows[0].id;
+      await saveEmpresas(client, novoId, Array.isArray(empresaIds) ? empresaIds : await defaultEmpresaIds());
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+    const { rows: created } = await query(`${BASE_SELECT} WHERE u.id = $1`, [novoId]);
+    res.status(201).json(await mapRow(created[0]));
   })
 );
 
@@ -116,7 +170,7 @@ router.put(
     const existing = await query(`SELECT id FROM usuarios WHERE id = $1 AND deleted_at IS NULL`, [req.params.id]);
     if (!existing.rows[0]) throw notFound('Usuário');
 
-    const { nome, email, senha, cargo, perfilId, ativo } = req.body;
+    const { nome, email, senha, cargo, perfilId, ativo, empresaIds } = req.body;
     const resolvedPerfilId = await resolvePerfilId(perfilId);
 
     const sets = [];
@@ -132,11 +186,27 @@ router.put(
     if (ativo !== undefined) push('ativo', ativo);
     if (senha) push('senha_hash', await bcrypt.hash(senha, 10));
 
-    if (sets.length === 0) throw badRequest('Nenhum campo para atualizar.');
-    params.push(req.params.id);
-    await query(`UPDATE usuarios SET ${sets.join(', ')} WHERE id = $${params.length}`, params);
+    if (sets.length === 0 && empresaIds === undefined) throw badRequest('Nenhum campo para atualizar.');
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      if (sets.length > 0) {
+        params.push(req.params.id);
+        await client.query(`UPDATE usuarios SET ${sets.join(', ')} WHERE id = $${params.length}`, params);
+      }
+      if (empresaIds !== undefined) {
+        await saveEmpresas(client, req.params.id, empresaIds);
+      }
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
     const { rows } = await query(`${BASE_SELECT} WHERE u.id = $1`, [req.params.id]);
-    res.json(mapRow(rows[0]));
+    res.json(await mapRow(rows[0]));
   })
 );
 
@@ -161,7 +231,7 @@ router.patch(
       ativo, req.params.id,
     ]);
     if (!rows[0]) throw notFound('Usuário');
-    res.json(mapRow(rows[0]));
+    res.json(await mapRow(rows[0]));
   })
 );
 
@@ -186,7 +256,7 @@ router.patch(
       bloqueado, req.params.id,
     ]);
     if (!rows[0]) throw notFound('Usuário');
-    res.json(mapRow(rows[0]));
+    res.json(await mapRow(rows[0]));
   })
 );
 

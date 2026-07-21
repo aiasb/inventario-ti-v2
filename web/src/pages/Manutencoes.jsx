@@ -5,15 +5,16 @@ import { useFetch, useLookup } from '../hooks/useApi.js';
 import { api } from '../api/client.js';
 import { StatusBadge } from '../components/StatusBadge.jsx';
 import { Modal } from '../components/Modal.jsx';
+import { ConfirmDialog } from '../components/ConfirmDialog.jsx';
 import { Icon } from '../components/Icons.jsx';
 import { useToast } from '../context/ToastContext.jsx';
-import { formatCurrency, formatDate } from '../utils/format.js';
+import { formatDate } from '../utils/format.js';
 
 const COLUMNS = ['Aberta', 'Em andamento', 'Concluida'];
 const COLUMN_LABELS = { Aberta: 'Aberta', 'Em andamento': 'Em andamento', Concluida: 'Concluída' };
 
 function emptyForm() {
-  return { equipamentoId: '', titulo: '', tipo: 'Corretiva', tecnico: '', custo: '', descricao: '', data: '' };
+  return { equipamentoId: '', titulo: '', tipo: 'Corretiva', tecnico: '', descricao: '', data: '' };
 }
 
 export function Manutencoes() {
@@ -24,6 +25,7 @@ export function Manutencoes() {
   const [form, setForm] = useState(emptyForm());
   const [saving, setSaving] = useState(false);
   const [equipSearch, setEquipSearch] = useState('');
+  const [confirmMove, setConfirmMove] = useState(null);
 
   const { data, loading, reload } = useFetch('/manutencoes', { limit: 100, sort: '-data' });
   const manutencoes = data?.data || [];
@@ -49,9 +51,15 @@ export function Manutencoes() {
     ),
   });
 
-  async function moveStatus(id, status) {
+  function moveStatus(item, status) {
+    setConfirmMove({ item, status });
+  }
+
+  async function handleConfirmMove() {
+    const { item, status } = confirmMove;
+    setConfirmMove(null);
     try {
-      await api.patch(`/manutencoes/${id}/status`, { status });
+      await api.patch(`/manutencoes/${item.id}/status`, { status });
       toast(`OS movida para "${COLUMN_LABELS[status]}".`);
       reload();
     } catch (err) {
@@ -63,7 +71,7 @@ export function Manutencoes() {
     e.preventDefault();
     setSaving(true);
     try {
-      await api.post('/manutencoes', { ...form, custo: form.custo ? Number(form.custo) : 0 });
+      await api.post('/manutencoes', form);
       toast('Ordem de serviço criada.');
       setShowForm(false);
       reload();
@@ -115,7 +123,7 @@ export function Manutencoes() {
                     </div>
                     <div className="move-actions">
                       {COLUMNS.filter((c) => c !== col).map((c) => (
-                        <button key={c} className="btn btn-sm" onClick={() => moveStatus(m.id, c)}>
+                        <button key={c} className="btn btn-sm" onClick={() => moveStatus(m, c)}>
                           → {COLUMN_LABELS[c]}
                         </button>
                       ))}
@@ -134,7 +142,7 @@ export function Manutencoes() {
           <table className="data-table">
             <thead>
               <tr>
-                <th>OS</th><th>Equipamento</th><th>Título</th><th>Tipo</th><th>Técnico</th><th>Custo</th><th>Data</th><th>Status</th>
+                <th>OS</th><th>Equipamento</th><th>Título</th><th>Tipo</th><th>Técnico</th><th>Data</th><th>Status</th>
               </tr>
             </thead>
             <tbody>
@@ -145,7 +153,6 @@ export function Manutencoes() {
                   <td>{m.titulo}</td>
                   <td>{m.tipo}</td>
                   <td>{m.tecnico || '—'}</td>
-                  <td className="mono">{formatCurrency(m.custo)}</td>
                   <td>{formatDate(m.data)}</td>
                   <td><StatusBadge status={m.status} /></td>
                 </tr>
@@ -185,10 +192,6 @@ export function Manutencoes() {
                 <input className="input" value={form.tecnico} onChange={(e) => setForm((f) => ({ ...f, tecnico: e.target.value }))} />
               </div>
               <div className="field">
-                <label>Custo (R$)</label>
-                <input type="number" step="0.01" className="input" value={form.custo} onChange={(e) => setForm((f) => ({ ...f, custo: e.target.value }))} />
-              </div>
-              <div className="field">
                 <label>Data</label>
                 <input type="date" className="input" value={form.data} onChange={(e) => setForm((f) => ({ ...f, data: e.target.value }))} />
               </div>
@@ -203,6 +206,16 @@ export function Manutencoes() {
             </div>
           </form>
         </Modal>
+      )}
+
+      {confirmMove && (
+        <ConfirmDialog
+          title="Mover ordem de serviço"
+          message={`Mover ${confirmMove.item.os} para "${COLUMN_LABELS[confirmMove.status]}"?`}
+          confirmLabel="Mover"
+          onConfirm={handleConfirmMove}
+          onCancel={() => setConfirmMove(null)}
+        />
       )}
     </div>
   );

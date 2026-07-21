@@ -8,12 +8,14 @@ import { useFonts } from 'expo-font';
 import { colors } from './src/theme/colors';
 import { fontsToLoad } from './src/theme/typography';
 import { AuthProvider } from './src/context/AuthContext';
+import { EmpresaProvider } from './src/context/EmpresaContext';
 import { AppDataProvider } from './src/context/AppDataContext';
 import { PreferencesProvider } from './src/context/PreferencesContext';
 import { ToastProvider } from './src/context/ToastContext';
 import { SheetProvider } from './src/context/SheetContext';
 import { RootNavigator } from './src/navigation/RootNavigator';
 import { EquipamentoSheet } from './src/sheets/EquipamentoSheet';
+import { RadioSheet } from './src/sheets/RadioSheet';
 
 const navigationTheme = {
   ...DarkTheme,
@@ -40,16 +42,19 @@ export default function App() {
       <StatusBar style="light" />
       <ToastProvider>
         <AuthProvider>
-          <PreferencesProvider>
-            <AppDataProvider>
-              <SheetProvider>
-                <NavigationContainer theme={navigationTheme}>
-                  <RootNavigator />
-                  <EquipamentoSheet />
-                </NavigationContainer>
-              </SheetProvider>
-            </AppDataProvider>
-          </PreferencesProvider>
+          <EmpresaProvider>
+            <PreferencesProvider>
+              <AppDataProvider>
+                <SheetProvider>
+                  <NavigationContainer theme={navigationTheme}>
+                    <RootNavigator />
+                    <EquipamentoSheet />
+                    <RadioSheet />
+                  </NavigationContainer>
+                </SheetProvider>
+              </AppDataProvider>
+            </PreferencesProvider>
+          </EmpresaProvider>
         </AuthProvider>
       </ToastProvider>
     </SafeAreaProvider>

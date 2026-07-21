@@ -1,11 +1,20 @@
 import { api, qs } from '../api/client';
 import {
+  AreaGeo,
+  Empresa,
   Equipamento,
   Fornecedor,
+  Frota,
+  Insumo,
+  ManutencaoRadio,
   Manutencao,
   Perfil,
+  Radio,
   Responsavel,
+  ResponsavelGeo,
   Setor,
+  StatusAtivo,
+  StatusManutencao,
   Termo,
   TermoModelo,
   TipoEquipamento,
@@ -56,6 +65,43 @@ export interface NovoTermoInput {
   observacoes?: string | null;
 }
 
+export interface NovoRadioInput {
+  numeroSerie: string;
+  modelo?: string | null;
+  idDigital?: string | null;
+  idAnalogico?: string | null;
+  frotaId?: number | null;
+  areaId?: number | null;
+  responsavelId?: number | null;
+  status: 'Ativo' | 'Estoque';
+  dataAquisicao?: string | null;
+  observacoes?: string | null;
+}
+
+export type EditarRadioInput = NovoRadioInput;
+
+export interface NovaManutencaoRadioInput {
+  radioId: number;
+  insumoId: number;
+  tipo: ManutencaoRadio['tipo'];
+  tecnico?: string;
+}
+
+function radioBody(input: NovoRadioInput) {
+  return {
+    numeroSerie: input.numeroSerie.trim().toUpperCase(),
+    modelo: input.modelo ? input.modelo.trim() : null,
+    idDigital: input.idDigital ? input.idDigital.trim() : null,
+    idAnalogico: input.idAnalogico ? input.idAnalogico.trim() : null,
+    frotaId: input.frotaId || null,
+    areaId: input.areaId || null,
+    responsavelId: input.responsavelId || null,
+    status: input.status,
+    dataAquisicao: input.dataAquisicao || null,
+    observacoes: input.observacoes || null,
+  };
+}
+
 function equipamentoBody(input: NovoEquipamentoInput) {
   return {
     tipoId: input.tipoId,
@@ -90,6 +136,10 @@ class RemoteRepository {
     return api.put<Equipamento>(`/equipamentos/${id}`, equipamentoBody(input), idemHeaders(idempotencyKey));
   }
 
+  async deleteEquipamento(id: number, idempotencyKey?: string): Promise<void> {
+    await api.delete(`/equipamentos/${id}`, idemHeaders(idempotencyKey));
+  }
+
   async listManutencoes(equipamentoId?: number): Promise<Manutencao[]> {
     const res = await api.get<Paginated<Manutencao>>(
       `/manutencoes${qs({ limit: 200, equipamentoId, sort: '-data' })}`
@@ -108,6 +158,10 @@ class RemoteRepository {
       },
       idemHeaders(idempotencyKey)
     );
+  }
+
+  async updateManutencaoStatus(id: number, status: StatusManutencao, idempotencyKey?: string): Promise<Manutencao> {
+    return api.patch<Manutencao>(`/manutencoes/${id}/status`, { status }, idemHeaders(idempotencyKey));
   }
 
   // ---- Termos ---------------------------------------------------------------
@@ -189,6 +243,25 @@ class RemoteRepository {
     await api.delete(`/setores/${id}`);
   }
 
+  // ---- Status (compartilhado TI/Geotecnologia) -------------------------------
+
+  async listStatusAtivo(somenteAtivos = true): Promise<StatusAtivo[]> {
+    const res = await api.get<Paginated<StatusAtivo>>(`/status-ativo${qs({ limit: 200, ativo: somenteAtivos || undefined })}`);
+    return res.data;
+  }
+
+  async createStatusAtivo(input: { nome: string }): Promise<StatusAtivo> {
+    return api.post<StatusAtivo>('/status-ativo', input);
+  }
+
+  async updateStatusAtivo(id: number, input: Partial<{ nome: string; ativo: boolean }>): Promise<StatusAtivo> {
+    return api.put<StatusAtivo>(`/status-ativo/${id}`, input);
+  }
+
+  async deleteStatusAtivo(id: number): Promise<void> {
+    await api.delete(`/status-ativo/${id}`);
+  }
+
   // ---- Tipos de equipamento -------------------------------------------------
 
   async listTiposEquipamento(somenteAtivos = true): Promise<TipoEquipamento[]> {
@@ -238,12 +311,19 @@ class RemoteRepository {
     return res.data;
   }
 
-  async createUsuario(input: { nome: string; email: string; senha: string; cargo?: string; perfilId: number }): Promise<UsuarioAdmin> {
+  async createUsuario(input: { nome: string; email: string; senha: string; cargo?: string; perfilId: number; empresaIds?: number[] }): Promise<UsuarioAdmin> {
     return api.post<UsuarioAdmin>('/usuarios', input);
   }
 
-  async updateUsuario(id: number, input: Partial<{ nome: string; email: string; senha: string; cargo: string; perfilId: number }>): Promise<UsuarioAdmin> {
+  async updateUsuario(id: number, input: Partial<{ nome: string; email: string; senha: string; cargo: string; perfilId: number; empresaIds: number[] }>): Promise<UsuarioAdmin> {
     return api.put<UsuarioAdmin>(`/usuarios/${id}`, input);
+  }
+
+  // ---- Empresas -------------------------------------------------------------
+
+  async listEmpresas(): Promise<Empresa[]> {
+    const res = await api.get<{ data: Empresa[] }>('/empresas');
+    return res.data;
   }
 
   async toggleUsuarioAtivo(id: number, ativo: boolean): Promise<UsuarioAdmin> {
@@ -279,6 +359,127 @@ class RemoteRepository {
 
   async deletePerfil(id: number): Promise<void> {
     await api.delete(`/perfis/${id}`);
+  }
+
+  // ---- Geotecnologia: Rádios -------------------------------------------------
+
+  async listRadios(): Promise<Radio[]> {
+    const res = await api.get<Paginated<Radio>>(`/radios${qs({ limit: 200, sort: '-updatedAt' })}`);
+    return res.data;
+  }
+
+  async createRadio(input: NovoRadioInput, idempotencyKey?: string): Promise<Radio> {
+    return api.post<Radio>('/radios', radioBody(input), idemHeaders(idempotencyKey));
+  }
+
+  async updateRadio(id: number, input: EditarRadioInput, idempotencyKey?: string): Promise<Radio> {
+    return api.put<Radio>(`/radios/${id}`, radioBody(input), idemHeaders(idempotencyKey));
+  }
+
+  async deleteRadio(id: number, idempotencyKey?: string): Promise<void> {
+    await api.delete(`/radios/${id}`, idemHeaders(idempotencyKey));
+  }
+
+  async listManutencoesRadios(radioId?: number): Promise<ManutencaoRadio[]> {
+    const res = await api.get<Paginated<ManutencaoRadio>>(
+      `/manutencoes-radios${qs({ limit: 200, radioId, sort: '-data' })}`
+    );
+    return res.data;
+  }
+
+  async createManutencaoRadio(input: NovaManutencaoRadioInput, idempotencyKey?: string): Promise<ManutencaoRadio> {
+    return api.post<ManutencaoRadio>(
+      '/manutencoes-radios',
+      {
+        radioId: input.radioId,
+        insumoId: input.insumoId,
+        tipo: input.tipo,
+        tecnico: input.tecnico?.trim() || null,
+      },
+      idemHeaders(idempotencyKey)
+    );
+  }
+
+  async updateManutencaoRadioStatus(id: number, status: StatusManutencao, idempotencyKey?: string): Promise<ManutencaoRadio> {
+    return api.patch<ManutencaoRadio>(`/manutencoes-radios/${id}/status`, { status }, idemHeaders(idempotencyKey));
+  }
+
+  // ---- Geotecnologia: Frotas --------------------------------------------------
+
+  async listFrotas(somenteAtivos = true): Promise<Frota[]> {
+    const res = await api.get<Paginated<Frota>>(`/frotas${qs({ limit: 200, ativo: somenteAtivos || undefined })}`);
+    return res.data;
+  }
+
+  async createFrota(input: { numero: string; nome: string }): Promise<Frota> {
+    return api.post<Frota>('/frotas', input);
+  }
+
+  async updateFrota(id: number, input: Partial<{ numero: string; nome: string; ativo: boolean }>): Promise<Frota> {
+    return api.put<Frota>(`/frotas/${id}`, input);
+  }
+
+  async deleteFrota(id: number): Promise<void> {
+    await api.delete(`/frotas/${id}`);
+  }
+
+  // ---- Geotecnologia: Insumos --------------------------------------------------
+
+  async listInsumos(somenteAtivos = true): Promise<Insumo[]> {
+    const res = await api.get<Paginated<Insumo>>(`/insumos${qs({ limit: 200, ativo: somenteAtivos || undefined })}`);
+    return res.data;
+  }
+
+  async createInsumo(input: { nome: string }): Promise<Insumo> {
+    return api.post<Insumo>('/insumos', input);
+  }
+
+  async updateInsumo(id: number, input: Partial<{ nome: string; ativo: boolean }>): Promise<Insumo> {
+    return api.put<Insumo>(`/insumos/${id}`, input);
+  }
+
+  async deleteInsumo(id: number): Promise<void> {
+    await api.delete(`/insumos/${id}`);
+  }
+
+  // ---- Geotecnologia: Áreas ----------------------------------------------------
+
+  async listAreasGeo(somenteAtivos = true): Promise<AreaGeo[]> {
+    const res = await api.get<Paginated<AreaGeo>>(`/areas-geo${qs({ limit: 200, ativo: somenteAtivos || undefined })}`);
+    return res.data;
+  }
+
+  async createAreaGeo(input: { nome: string }): Promise<AreaGeo> {
+    return api.post<AreaGeo>('/areas-geo', input);
+  }
+
+  async updateAreaGeo(id: number, input: Partial<{ nome: string; ativo: boolean }>): Promise<AreaGeo> {
+    return api.put<AreaGeo>(`/areas-geo/${id}`, input);
+  }
+
+  async deleteAreaGeo(id: number): Promise<void> {
+    await api.delete(`/areas-geo/${id}`);
+  }
+
+  // ---- Geotecnologia: Responsáveis ---------------------------------------------
+
+  async listResponsaveisGeo(somenteAtivos = true): Promise<ResponsavelGeo[]> {
+    const res = await api.get<Paginated<ResponsavelGeo>>(
+      `/responsaveis-geo${qs({ limit: 200, ativo: somenteAtivos || undefined })}`
+    );
+    return res.data;
+  }
+
+  async createResponsavelGeo(input: { nome: string; matricula?: string | null; cpf?: string | null; areaId?: number | null }): Promise<ResponsavelGeo> {
+    return api.post<ResponsavelGeo>('/responsaveis-geo', input);
+  }
+
+  async updateResponsavelGeo(id: number, input: Partial<{ nome: string; matricula: string | null; cpf: string | null; areaId: number | null; ativo: boolean }>): Promise<ResponsavelGeo> {
+    return api.put<ResponsavelGeo>(`/responsaveis-geo/${id}`, input);
+  }
+
+  async deleteResponsavelGeo(id: number): Promise<void> {
+    await api.delete(`/responsaveis-geo/${id}`);
   }
 }
 

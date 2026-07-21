@@ -1,11 +1,13 @@
 import { useMemo, useState } from 'react';
 import { usePageHeader } from '../context/HeaderContext.jsx';
+import { useEmpresa } from '../context/EmpresaContext.jsx';
 import { useFetch } from '../hooks/useApi.js';
 import { FiltersBar } from '../components/FiltersBar.jsx';
 import { Sparkline } from '../components/Sparkline.jsx';
 import { StatusBadge } from '../components/StatusBadge.jsx';
 import { ColumnChart } from '../components/ColumnChart.jsx';
 import { ageInYears, formatAge, formatDate, formatDateTime, warrantyStatus } from '../utils/format.js';
+import { DashboardGeo } from './DashboardGeo.jsx';
 
 const VIEW_TABS = ['Visão geral', 'Por tipo', 'Por status', 'Por setor', 'Idade por setor'];
 const MONTH_LABELS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
@@ -133,6 +135,12 @@ function futureMonthBuckets(items, dateFn, months = 6) {
 }
 
 export function Dashboard() {
+  const { empresaAtual } = useEmpresa();
+  if (empresaAtual === 'geotecnologia') return <DashboardGeo />;
+  return <DashboardTI />;
+}
+
+function DashboardTI() {
   usePageHeader({ breadcrumb: 'Operação / Dashboard', title: 'Dashboard' });
   const [filters, setFilters] = useState({});
   const [tab, setTab] = useState('Visão geral');

@@ -25,7 +25,7 @@ interface FieldConfig {
 }
 
 interface TabConfig {
-  key: 'tipos-equipamento' | 'setores' | 'fornecedores';
+  key: 'tipos-equipamento' | 'setores' | 'fornecedores' | 'status-ativo';
   label: string;
   fields: FieldConfig[];
   subtitle: (item: any) => string;
@@ -58,29 +58,41 @@ const TABS: TabConfig[] = [
     ],
     subtitle: (f: Fornecedor) => f.cnpj || f.telefone || '',
   },
+  {
+    // Compartilhado com Geotecnologia (ver CadastrosGeoScreen.tsx) — mesma
+    // tabela status_ativo no backend.
+    key: 'status-ativo',
+    label: 'Status',
+    fields: [{ key: 'nome', label: 'Nome', required: true }],
+    subtitle: () => '',
+  },
 ];
 
 async function listFor(key: TabConfig['key']): Promise<any[]> {
   if (key === 'tipos-equipamento') return repository.listTiposEquipamento(false);
   if (key === 'setores') return repository.listSetores(false);
+  if (key === 'status-ativo') return repository.listStatusAtivo(false);
   return repository.listFornecedores(false);
 }
 
 async function createFor(key: TabConfig['key'], body: any) {
   if (key === 'tipos-equipamento') return repository.createTipoEquipamento(body);
   if (key === 'setores') return repository.createSetor(body);
+  if (key === 'status-ativo') return repository.createStatusAtivo(body);
   return repository.createFornecedor(body);
 }
 
 async function updateFor(key: TabConfig['key'], id: number, body: any) {
   if (key === 'tipos-equipamento') return repository.updateTipoEquipamento(id, body);
   if (key === 'setores') return repository.updateSetor(id, body);
+  if (key === 'status-ativo') return repository.updateStatusAtivo(id, body);
   return repository.updateFornecedor(id, body);
 }
 
 async function deleteFor(key: TabConfig['key'], id: number) {
   if (key === 'tipos-equipamento') return repository.deleteTipoEquipamento(id);
   if (key === 'setores') return repository.deleteSetor(id);
+  if (key === 'status-ativo') return repository.deleteStatusAtivo(id);
   return repository.deleteFornecedor(id);
 }
 

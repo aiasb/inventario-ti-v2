@@ -6,11 +6,13 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Header } from '../components/Header';
 import { SectionCard } from '../components/SectionCard';
 import { ToggleRow, LinkRow } from '../components/SettingRow';
+import { BottomSheet } from '../components/BottomSheet';
 import { colors } from '../theme/colors';
 import { fonts } from '../theme/typography';
 import { spacing, radius } from '../theme/spacing';
 import { useAppData } from '../context/AppDataContext';
 import { useAuth } from '../context/AuthContext';
+import { useEmpresa } from '../context/EmpresaContext';
 import { useToast } from '../context/ToastContext';
 import { usePreferences } from '../context/PreferencesContext';
 import { useRefreshControl } from '../hooks/useRefreshControl';
@@ -26,11 +28,13 @@ export function ConfiguracoesScreen() {
   const navigation = useNavigation<Nav>();
   const { equipamentos } = useAppData();
   const { usuario, serverUrl, logout, podeVer } = useAuth();
+  const { empresaAtual, empresas, setEmpresaAtual } = useEmpresa();
   const { showToast } = useToast();
   const { preferences: prefs, updatePreference } = usePreferences();
   const { refreshing, onRefresh } = useRefreshControl();
   const { pendingCount, blockedItems } = useSyncState();
   const [sobreVisible, setSobreVisible] = useState(false);
+  const [empresaSheetVisible, setEmpresaSheetVisible] = useState(false);
 
   async function updatePref<K extends keyof Preferences>(key: K, value: Preferences[K]) {
     if (key === 'notificacoesPush' && value === true) {
@@ -121,13 +125,38 @@ export function ConfiguracoesScreen() {
           <LinkRow title="Sobre" value="Inventário TI v2 · mobile" onPress={() => setSobreVisible(true)} isLast />
         </SectionCard>
 
-        {(podeVer('cadastros') || podeVer('responsaveis') || podeVer('acessos')) && (
+        {empresas.length > 1 && (
+          <SectionCard title="Empresa" style={{ marginBottom: spacing.lg }}>
+            <LinkRow
+              title="Empresa atual"
+              value={empresas.find((e) => e.slug === empresaAtual)?.nome || '—'}
+              onPress={() => setEmpresaSheetVisible(true)}
+              isLast
+            />
+          </SectionCard>
+        )}
+
+        {(empresaAtual === 'ti' || !empresaAtual) && (podeVer('cadastros') || podeVer('responsaveis') || podeVer('acessos')) && (
           <SectionCard title="Administração" style={{ marginBottom: spacing.lg }}>
             {podeVer('cadastros') && (
               <LinkRow title="Cadastros" value="tipos, setores, fornecedores" onPress={() => navigation.navigate('Cadastros')} />
             )}
             {podeVer('responsaveis') && (
               <LinkRow title="Responsáveis" onPress={() => navigation.navigate('Responsaveis')} />
+            )}
+            {podeVer('acessos') && (
+              <LinkRow title="Acessos" value="usuários e perfis" onPress={() => navigation.navigate('Acessos')} isLast />
+            )}
+          </SectionCard>
+        )}
+
+        {empresaAtual === 'geotecnologia' && (podeVer('responsaveisGeo') || podeVer('cadastrosGeo') || podeVer('acessos')) && (
+          <SectionCard title="Administração" style={{ marginBottom: spacing.lg }}>
+            {podeVer('responsaveisGeo') && (
+              <LinkRow title="Responsáveis" onPress={() => navigation.navigate('ResponsaveisGeo')} />
+            )}
+            {podeVer('cadastrosGeo') && (
+              <LinkRow title="Cadastros" value="frotas, áreas" onPress={() => navigation.navigate('CadastrosGeo')} />
             )}
             {podeVer('acessos') && (
               <LinkRow title="Acessos" value="usuários e perfis" onPress={() => navigation.navigate('Acessos')} isLast />
@@ -148,6 +177,20 @@ export function ConfiguracoesScreen() {
           Conectado a {serverUrl}
         </Text>
       </InfoModal>
+
+      <BottomSheet visible={empresaSheetVisible} onClose={() => setEmpresaSheetVisible(false)} heightPercent={0.35}>
+        <Text style={styles.modalTitle}>Trocar empresa</Text>
+        {empresas.map((e) => (
+          <Pressable
+            key={e.id}
+            style={styles.empresaOption}
+            onPress={() => { setEmpresaAtual(e.slug); setEmpresaSheetVisible(false); }}
+          >
+            <Text style={[styles.empresaOptionText, e.slug === empresaAtual && { color: colors.accent }]}>{e.nome}</Text>
+            {e.slug === empresaAtual && <Feather name="check" size={16} color={colors.accent} />}
+          </Pressable>
+        ))}
+      </BottomSheet>
     </View>
   );
 }
@@ -280,5 +323,18 @@ const styles = StyleSheet.create({
     fontSize: 13.5,
     color: colors.text,
     lineHeight: 20,
+  },
+  empresaOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderSoft,
+  },
+  empresaOptionText: {
+    fontFamily: fonts.bodyMedium,
+    fontSize: 15,
+    color: colors.text,
   },
 });

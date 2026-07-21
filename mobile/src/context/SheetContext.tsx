@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useState } from 'react';
-import { Equipamento } from '../types/models';
+import { Equipamento, Radio } from '../types/models';
 
 interface SheetContextValue {
   equipamentoSheetVisible: boolean;
@@ -7,6 +7,11 @@ interface SheetContextValue {
   openNovoEquipamento: () => void;
   openEditarEquipamento: (equipamento: Equipamento) => void;
   closeEquipamentoSheet: () => void;
+  radioSheetVisible: boolean;
+  editingRadio: Radio | null;
+  openNovoRadio: () => void;
+  openEditarRadio: (radio: Radio) => void;
+  closeRadioSheet: () => void;
 }
 
 const SheetContext = createContext<SheetContextValue | null>(null);
@@ -14,6 +19,8 @@ const SheetContext = createContext<SheetContextValue | null>(null);
 export function SheetProvider({ children }: { children: React.ReactNode }) {
   const [equipamentoSheetVisible, setEquipamentoSheetVisible] = useState(false);
   const [editingEquipamento, setEditingEquipamento] = useState<Equipamento | null>(null);
+  const [radioSheetVisible, setRadioSheetVisible] = useState(false);
+  const [editingRadio, setEditingRadio] = useState<Radio | null>(null);
 
   const openNovoEquipamento = useCallback(() => {
     setEditingEquipamento(null);
@@ -27,6 +34,18 @@ export function SheetProvider({ children }: { children: React.ReactNode }) {
 
   const closeEquipamentoSheet = useCallback(() => setEquipamentoSheetVisible(false), []);
 
+  const openNovoRadio = useCallback(() => {
+    setEditingRadio(null);
+    setRadioSheetVisible(true);
+  }, []);
+
+  const openEditarRadio = useCallback((radio: Radio) => {
+    setEditingRadio(radio);
+    setRadioSheetVisible(true);
+  }, []);
+
+  const closeRadioSheet = useCallback(() => setRadioSheetVisible(false), []);
+
   return (
     <SheetContext.Provider
       value={{
@@ -35,6 +54,11 @@ export function SheetProvider({ children }: { children: React.ReactNode }) {
         openNovoEquipamento,
         openEditarEquipamento,
         closeEquipamentoSheet,
+        radioSheetVisible,
+        editingRadio,
+        openNovoRadio,
+        openEditarRadio,
+        closeRadioSheet,
       }}
     >
       {children}

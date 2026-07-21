@@ -3,16 +3,27 @@ import { query } from '../db.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { notFound, badRequest, conflict } from '../utils/errors.js';
 import { parsePagination, paginatedResponse } from '../utils/pagination.js';
-import { requireAuth, requirePermission } from '../middleware/auth.js';
+import { requireAuth, requirePermission, requireAnyPermission, requireEmpresa } from '../middleware/auth.js';
 
 /**
  * Fábrica de rotas CRUD para tabelas auxiliares simples (setores, filiais,
  * tipos_equipamento, fornecedores) que compartilham o mesmo formato:
  * id, nome (+ colunas extras opcionais), ativo, timestamps, soft delete.
+ *
+ * `empresa`, quando informado (ex.: 'geotecnologia'), exige que o usuário
+ * tenha acesso àquela empresa (tabela usuario_empresas) além da permissão
+ * de módulo normal — usado pelos cadastros exclusivos da Geotecnologia.
+ *
+ * `modulo` aceita um array (ex.: ['cadastros', 'cadastrosGeo']) para
+ * cadastros compartilhados entre TI e Geotecnologia — libera quem tiver a
+ * permissão em qualquer um dos módulos listados.
  */
-export function simpleCrudRouter({ table, columns, snakeToCamel, searchColumn = 'nome', modulo }) {
+export function simpleCrudRouter({ table, columns, snakeToCamel, searchColumn = 'nome', modulo, empresa }) {
   const router = Router();
   const cols = ['id', ...columns, 'ativo', 'created_at', 'updated_at'];
+  const empresaGate = empresa ? [requireEmpresa(empresa)] : [];
+  const permissionFor = (acao) =>
+    Array.isArray(modulo) ? requireAnyPermission(modulo, acao) : requirePermission(modulo, acao);
 
   function mapRow(row) {
     const out = {};
@@ -25,7 +36,8 @@ export function simpleCrudRouter({ table, columns, snakeToCamel, searchColumn = 
   router.get(
     '/',
     requireAuth,
-    requirePermission(modulo, 'ver'),
+    ...empresaGate,
+    permissionFor('ver'),
     asyncHandler(async (req, res) => {
       const { q, ativo } = req.query;
       const { page, limit, offset } = parsePagination(req.query, { defaultLimit: 50, maxLimit: 200 });
@@ -55,7 +67,8 @@ export function simpleCrudRouter({ table, columns, snakeToCamel, searchColumn = 
   router.get(
     '/:id',
     requireAuth,
-    requirePermission(modulo, 'ver'),
+    ...empresaGate,
+    permissionFor('ver'),
     asyncHandler(async (req, res) => {
       const { rows } = await query(`SELECT ${cols.join(', ')} FROM ${table} WHERE id = $1 AND deleted_at IS NULL`, [req.params.id]);
       if (!rows[0]) throw notFound();
@@ -66,7 +79,8 @@ export function simpleCrudRouter({ table, columns, snakeToCamel, searchColumn = 
   router.post(
     '/',
     requireAuth,
-    requirePermission(modulo, 'criar'),
+    ...empresaGate,
+    permissionFor('criar'),
     asyncHandler(async (req, res) => {
       const insertCols = columns.filter((c) => req.body[snakeToCamel[c] || c] !== undefined);
       if (insertCols.length === 0) throw badRequest('Nenhum campo informado.');
@@ -83,7 +97,8 @@ export function simpleCrudRouter({ table, columns, snakeToCamel, searchColumn = 
   router.put(
     '/:id',
     requireAuth,
-    requirePermission(modulo, 'editar'),
+    ...empresaGate,
+    permissionFor('editar'),
     asyncHandler(async (req, res) => {
       const existing = await query(`SELECT id FROM ${table} WHERE id = $1 AND deleted_at IS NULL`, [req.params.id]);
       if (!existing.rows[0]) throw notFound();
@@ -111,7 +126,8 @@ export function simpleCrudRouter({ table, columns, snakeToCamel, searchColumn = 
   router.delete(
     '/:id',
     requireAuth,
-    requirePermission(modulo, 'excluir'),
+    ...empresaGate,
+    permissionFor('excluir'),
     asyncHandler(async (req, res) => {
       try {
         const result = await query(`UPDATE ${table} SET deleted_at = now() WHERE id = $1 AND deleted_at IS NULL`, [req.params.id]);

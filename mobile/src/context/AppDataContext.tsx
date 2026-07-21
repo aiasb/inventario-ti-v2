@@ -1,7 +1,32 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { ApiClientError } from '../api/client';
-import { EditarEquipamentoInput, NovaManutencaoInput, NovoEquipamentoInput, NovoTermoInput, repository } from '../data/repository';
-import { Atividade, Equipamento, Manutencao, Responsavel, Setor, Termo, TermoModelo, TipoEquipamento } from '../types/models';
+import {
+  EditarEquipamentoInput,
+  EditarRadioInput,
+  NovaManutencaoInput,
+  NovaManutencaoRadioInput,
+  NovoEquipamentoInput,
+  NovoRadioInput,
+  NovoTermoInput,
+  repository,
+} from '../data/repository';
+import {
+  AreaGeo,
+  Atividade,
+  Equipamento,
+  Frota,
+  Insumo,
+  ManutencaoRadio,
+  Manutencao,
+  Radio,
+  Responsavel,
+  ResponsavelGeo,
+  Setor,
+  StatusManutencao,
+  Termo,
+  TermoModelo,
+  TipoEquipamento,
+} from '../types/models';
 import { warrantyInfo, WarrantyInfo } from '../utils/format';
 import { notifyGarantiasVencendo } from '../utils/notifications';
 import { loadSnapshot, saveSnapshot } from '../offline/cache';
@@ -24,6 +49,12 @@ interface AppDataContextValue {
   tiposEquipamento: TipoEquipamento[];
   termos: Termo[];
   termoModelos: TermoModelo[];
+  radios: Radio[];
+  frotas: Frota[];
+  areasGeo: AreaGeo[];
+  responsaveisGeo: ResponsavelGeo[];
+  insumos: Insumo[];
+  manutencoesRadios: ManutencaoRadio[];
   atividades: Atividade[];
   garantiasVencendo: GarantiaVencendo[];
   refresh: () => Promise<void>;
@@ -31,11 +62,20 @@ interface AppDataContextValue {
   getManutencoesDe: (equipamentoId: number) => Manutencao[];
   criarEquipamento: (input: NovoEquipamentoInput) => Promise<Equipamento>;
   editarEquipamento: (id: number, input: EditarEquipamentoInput) => Promise<Equipamento>;
+  excluirEquipamento: (id: number) => Promise<void>;
   abrirOs: (input: NovaManutencaoInput) => Promise<Manutencao>;
+  alterarStatusOs: (id: number, status: StatusManutencao) => Promise<Manutencao>;
   alternarAssinaturaTermo: (id: number, assinado: boolean) => Promise<Termo>;
   alternarDevolucaoTermo: (id: number, devolvido: boolean) => Promise<Termo>;
   criarTermo: (input: NovoTermoInput) => Promise<Termo>;
   excluirTermo: (id: number) => Promise<void>;
+  getRadio: (id: number) => Radio | undefined;
+  getManutencoesRadioDe: (radioId: number) => ManutencaoRadio[];
+  criarRadio: (input: NovoRadioInput) => Promise<Radio>;
+  editarRadio: (id: number, input: EditarRadioInput) => Promise<Radio>;
+  excluirRadio: (id: number) => Promise<void>;
+  abrirOsRadio: (input: NovaManutencaoRadioInput) => Promise<ManutencaoRadio>;
+  alterarStatusOsRadio: (id: number, status: StatusManutencao) => Promise<ManutencaoRadio>;
 }
 
 const AppDataContext = createContext<AppDataContextValue | null>(null);
@@ -91,11 +131,17 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   const [tiposEquipamento, setTiposEquipamento] = useState<TipoEquipamento[]>([]);
   const [termos, setTermos] = useState<Termo[]>([]);
   const [termoModelos, setTermoModelos] = useState<TermoModelo[]>([]);
+  const [radios, setRadios] = useState<Radio[]>([]);
+  const [frotas, setFrotas] = useState<Frota[]>([]);
+  const [areasGeo, setAreasGeo] = useState<AreaGeo[]>([]);
+  const [responsaveisGeo, setResponsaveisGeo] = useState<ResponsavelGeo[]>([]);
+  const [manutencoesRadios, setManutencoesRadios] = useState<ManutencaoRadio[]>([]);
+  const [insumos, setInsumos] = useState<Insumo[]>([]);
   const hadUserRef = useRef(false);
 
   const refresh = useCallback(async () => {
     try {
-      const [eq, mn, resp, set, tipos, term, termMod] = await Promise.all([
+      const [eq, mn, resp, set, tipos, term, termMod, rad, frt, areaG, respG, mnRad, ins] = await Promise.all([
         repository.listEquipamentos(),
         repository.listManutencoes(),
         repository.listResponsaveis(),
@@ -103,6 +149,12 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
         repository.listTiposEquipamento(),
         repository.listTermos(),
         repository.listTermoModelos(),
+        repository.listRadios(),
+        repository.listFrotas(),
+        repository.listAreasGeo(),
+        repository.listResponsaveisGeo(),
+        repository.listManutencoesRadios(),
+        repository.listInsumos(),
       ]);
       setEquipamentos(eq);
       setManutencoes(mn);
@@ -111,7 +163,17 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       setTiposEquipamento(tipos);
       setTermos(term);
       setTermoModelos(termMod);
-      await saveSnapshot({ equipamentos: eq, manutencoes: mn, responsaveis: resp, setores: set, tiposEquipamento: tipos, termos: term, termoModelos: termMod });
+      setRadios(rad);
+      setFrotas(frt);
+      setAreasGeo(areaG);
+      setResponsaveisGeo(respG);
+      setManutencoesRadios(mnRad);
+      setInsumos(ins);
+      await saveSnapshot({
+        equipamentos: eq, manutencoes: mn, responsaveis: resp, setores: set, tiposEquipamento: tipos,
+        termos: term, termoModelos: termMod, radios: rad, frotas: frt, areasGeo: areaG,
+        responsaveisGeo: respG, manutencoesRadios: mnRad, insumos: ins,
+      });
     } catch (err) {
       if (isNetworkError(err)) {
         showToast('Sem conexão — mostrando os últimos dados salvos.');
@@ -141,6 +203,12 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
         setTiposEquipamento([]);
         setTermos([]);
         setTermoModelos([]);
+        setRadios([]);
+        setFrotas([]);
+        setAreasGeo([]);
+        setResponsaveisGeo([]);
+        setManutencoesRadios([]);
+        setInsumos([]);
       }
       return;
     }
@@ -156,6 +224,12 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
         setTiposEquipamento(snap.tiposEquipamento);
         setTermos(snap.termos);
         setTermoModelos(snap.termoModelos);
+        setRadios(snap.radios);
+        setFrotas(snap.frotas);
+        setAreasGeo(snap.areasGeo);
+        setResponsaveisGeo(snap.responsaveisGeo);
+        setManutencoesRadios(snap.manutencoesRadios);
+        setInsumos(snap.insumos);
         setReady(true);
       }
       await refresh();
@@ -248,6 +322,28 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [refresh, showToast, equipamentos, tiposEquipamento, setores, responsaveis]
+  );
+
+  const excluirEquipamento = useCallback(
+    async (id: number) => {
+      if (id < 0) {
+        // Equipamento criado offline e ainda não sincronizado — não existe no
+        // servidor, então basta cancelar a criação enfileirada.
+        await cancelPendingCreate('equipamento', id);
+        setEquipamentos((prev) => prev.filter((e) => e.id !== id));
+        return;
+      }
+      try {
+        await repository.deleteEquipamento(id);
+        await refresh();
+      } catch (err) {
+        if (!isNetworkError(err)) throw err;
+        setEquipamentos((prev) => prev.filter((e) => e.id !== id));
+        enqueue({ kind: 'excluirEquipamento', equipamentoId: id });
+        showToast('Sem conexão — a exclusão será enviada automaticamente quando a rede voltar.');
+      }
+    },
+    [refresh, showToast]
   );
 
   const abrirOs = useCallback(
@@ -399,11 +495,203 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     [refresh, showToast]
   );
 
+  function resolveRadioRefs(input: { frotaId?: number | null; areaId?: number | null; responsavelId?: number | null }) {
+    const frota = input.frotaId ? frotas.find((f) => f.id === input.frotaId) ?? null : null;
+    const area = input.areaId ? areasGeo.find((a) => a.id === input.areaId) ?? null : null;
+    const responsavelFull = input.responsavelId ? responsaveisGeo.find((r) => r.id === input.responsavelId) : undefined;
+    const responsavel = responsavelFull ? { id: responsavelFull.id, nome: responsavelFull.nome } : null;
+    return { frota, area, responsavel };
+  }
+
+  const criarRadio = useCallback(
+    async (input: NovoRadioInput) => {
+      try {
+        const created = await repository.createRadio(input);
+        await refresh();
+        return created;
+      } catch (err) {
+        if (!isNetworkError(err)) throw err;
+        const tempId = nextTempId();
+        const { frota, area, responsavel } = resolveRadioRefs(input);
+        const now = new Date().toISOString();
+        const optimistic: Radio = {
+          id: tempId,
+          numeroSerie: input.numeroSerie.trim().toUpperCase(),
+          modelo: input.modelo ? input.modelo.trim() : null,
+          idDigital: input.idDigital ? input.idDigital.trim() : null,
+          idAnalogico: input.idAnalogico ? input.idAnalogico.trim() : null,
+          frota,
+          area,
+          responsavel,
+          status: input.status,
+          dataAquisicao: input.dataAquisicao || null,
+          observacoes: input.observacoes || null,
+          createdAt: now,
+          updatedAt: now,
+          pendingSync: true,
+        };
+        setRadios((prev) => [optimistic, ...prev]);
+        enqueue({ kind: 'criarRadio', tempId, input });
+        showToast('Sem conexão — o rádio será enviado automaticamente quando a rede voltar.');
+        return optimistic;
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [refresh, showToast, frotas, areasGeo, responsaveisGeo]
+  );
+
+  const editarRadio = useCallback(
+    async (id: number, input: EditarRadioInput) => {
+      try {
+        const updated = await repository.updateRadio(id, input);
+        await refresh();
+        return updated;
+      } catch (err) {
+        if (!isNetworkError(err)) throw err;
+        const existing = radios.find((r) => r.id === id);
+        const { frota, area, responsavel } = resolveRadioRefs(input);
+        const optimistic: Radio = {
+          ...(existing as Radio),
+          id,
+          numeroSerie: input.numeroSerie.trim().toUpperCase(),
+          modelo: input.modelo ? input.modelo.trim() : null,
+          idDigital: input.idDigital ? input.idDigital.trim() : null,
+          idAnalogico: input.idAnalogico ? input.idAnalogico.trim() : null,
+          frota,
+          area,
+          responsavel,
+          status: input.status,
+          dataAquisicao: input.dataAquisicao || null,
+          observacoes: input.observacoes || null,
+          updatedAt: new Date().toISOString(),
+          pendingSync: true,
+        };
+        setRadios((prev) => prev.map((r) => (r.id === id ? optimistic : r)));
+        enqueue({ kind: 'editarRadio', radioId: id, input });
+        showToast('Sem conexão — a edição será enviada automaticamente quando a rede voltar.');
+        return optimistic;
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [refresh, showToast, radios, frotas, areasGeo, responsaveisGeo]
+  );
+
+  const excluirRadio = useCallback(
+    async (id: number) => {
+      if (id < 0) {
+        // Rádio criado offline e ainda não sincronizado — não existe no
+        // servidor, então basta cancelar a criação enfileirada.
+        await cancelPendingCreate('radio', id);
+        setRadios((prev) => prev.filter((r) => r.id !== id));
+        return;
+      }
+      try {
+        await repository.deleteRadio(id);
+        await refresh();
+      } catch (err) {
+        if (!isNetworkError(err)) throw err;
+        setRadios((prev) => prev.filter((r) => r.id !== id));
+        enqueue({ kind: 'excluirRadio', radioId: id });
+        showToast('Sem conexão — a exclusão será enviada automaticamente quando a rede voltar.');
+      }
+    },
+    [refresh, showToast]
+  );
+
+  const abrirOsRadio = useCallback(
+    async (input: NovaManutencaoRadioInput) => {
+      try {
+        const created = await repository.createManutencaoRadio(input);
+        await refresh();
+        return created;
+      } catch (err) {
+        if (!isNetworkError(err)) throw err;
+        const tempId = nextTempId();
+        const radio = radios.find((r) => r.id === input.radioId);
+        const insumo = insumos.find((i) => i.id === input.insumoId);
+        const now = new Date().toISOString();
+        const optimistic: ManutencaoRadio = {
+          id: tempId,
+          os: 'Pendente',
+          radio: radio
+            ? { id: radio.id, numeroSerie: radio.numeroSerie, modelo: radio.modelo }
+            : { id: input.radioId, numeroSerie: '—', modelo: null },
+          insumo: insumo ? { id: insumo.id, nome: insumo.nome } : null,
+          titulo: insumo?.nome || '—',
+          tipo: input.tipo,
+          tecnico: input.tecnico?.trim() || null,
+          custo: null,
+          descricao: null,
+          data: now,
+          status: 'Aberta',
+          createdAt: now,
+          updatedAt: now,
+          pendingSync: true,
+        };
+        setManutencoesRadios((prev) => [optimistic, ...prev]);
+        enqueue({ kind: 'abrirOsRadio', tempId, input });
+        showToast('Sem conexão — a OS será enviada automaticamente quando a rede voltar.');
+        return optimistic;
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [refresh, showToast, radios, insumos]
+  );
+
+  const alterarStatusOs = useCallback(
+    async (id: number, status: StatusManutencao) => {
+      if (id < 0) {
+        showToast('Aguarde a sincronização desta OS antes de alterar o status.');
+        return manutencoes.find((m) => m.id === id)!;
+      }
+      try {
+        const updated = await repository.updateManutencaoStatus(id, status);
+        await refresh();
+        return updated;
+      } catch (err) {
+        if (!isNetworkError(err)) throw err;
+        setManutencoes((prev) => prev.map((m) => (m.id === id ? { ...m, status, pendingSync: true } : m)));
+        enqueue({ kind: 'alterarStatusOs', manutencaoId: id, status });
+        showToast('Sem conexão — a alteração será enviada automaticamente quando a rede voltar.');
+        return manutencoes.find((m) => m.id === id)!;
+      }
+    },
+    [refresh, showToast, manutencoes]
+  );
+
+  const alterarStatusOsRadio = useCallback(
+    async (id: number, status: StatusManutencao) => {
+      if (id < 0) {
+        showToast('Aguarde a sincronização desta OS antes de alterar o status.');
+        return manutencoesRadios.find((m) => m.id === id)!;
+      }
+      try {
+        const updated = await repository.updateManutencaoRadioStatus(id, status);
+        await refresh();
+        return updated;
+      } catch (err) {
+        if (!isNetworkError(err)) throw err;
+        setManutencoesRadios((prev) => prev.map((m) => (m.id === id ? { ...m, status, pendingSync: true } : m)));
+        enqueue({ kind: 'alterarStatusOsRadio', manutencaoRadioId: id, status });
+        showToast('Sem conexão — a alteração será enviada automaticamente quando a rede voltar.');
+        return manutencoesRadios.find((m) => m.id === id)!;
+      }
+    },
+    [refresh, showToast, manutencoesRadios]
+  );
+
   const getEquipamento = useCallback((id: number) => equipamentos.find((e) => e.id === id), [equipamentos]);
 
   const getManutencoesDe = useCallback(
     (equipamentoId: number) => manutencoes.filter((m) => m.equipamento.id === equipamentoId),
     [manutencoes]
+  );
+
+  const getRadio = useCallback((id: number) => radios.find((r) => r.id === id), [radios]);
+
+  const getManutencoesRadioDe = useCallback(
+    (radioId: number) => manutencoesRadios.filter((m) => m.radio.id === radioId),
+    [manutencoesRadios]
   );
 
   const atividades = useMemo(() => buildAtividades(equipamentos, manutencoes), [equipamentos, manutencoes]);
@@ -438,6 +726,12 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       tiposEquipamento,
       termos,
       termoModelos,
+      radios,
+      frotas,
+      areasGeo,
+      responsaveisGeo,
+      manutencoesRadios,
+      insumos,
       atividades,
       garantiasVencendo,
       refresh,
@@ -445,11 +739,20 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       getManutencoesDe,
       criarEquipamento,
       editarEquipamento,
+      excluirEquipamento,
       abrirOs,
+      alterarStatusOs,
       alternarAssinaturaTermo,
       alternarDevolucaoTermo,
       criarTermo,
       excluirTermo,
+      getRadio,
+      getManutencoesRadioDe,
+      criarRadio,
+      editarRadio,
+      excluirRadio,
+      abrirOsRadio,
+      alterarStatusOsRadio,
     }),
     [
       ready,
@@ -460,6 +763,12 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       tiposEquipamento,
       termos,
       termoModelos,
+      radios,
+      frotas,
+      areasGeo,
+      responsaveisGeo,
+      manutencoesRadios,
+      insumos,
       atividades,
       garantiasVencendo,
       refresh,
@@ -467,11 +776,20 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       getManutencoesDe,
       criarEquipamento,
       editarEquipamento,
+      excluirEquipamento,
       abrirOs,
+      alterarStatusOs,
       alternarAssinaturaTermo,
       alternarDevolucaoTermo,
       criarTermo,
       excluirTermo,
+      getRadio,
+      getManutencoesRadioDe,
+      criarRadio,
+      editarRadio,
+      excluirRadio,
+      abrirOsRadio,
+      alterarStatusOsRadio,
     ]
   );
 
