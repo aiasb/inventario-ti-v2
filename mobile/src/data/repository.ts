@@ -4,10 +4,12 @@ import {
   Empresa,
   Equipamento,
   Fornecedor,
+  FornecedorGeo,
   Frota,
   Insumo,
   ManutencaoRadio,
   Manutencao,
+  Ocorrencia,
   Perfil,
   Radio,
   Responsavel,
@@ -15,9 +17,11 @@ import {
   Setor,
   StatusAtivo,
   StatusManutencao,
+  StatusOcorrencia,
   Termo,
   TermoModelo,
   TipoEquipamento,
+  Transportadora,
   UsuarioAdmin,
 } from '../types/models';
 
@@ -482,6 +486,84 @@ class RemoteRepository {
 
   async deleteResponsavelGeo(id: number): Promise<void> {
     await api.delete(`/responsaveis-geo/${id}`);
+  }
+
+  // ---- Geotecnologia: Transportadoras -------------------------------------------
+
+  async listTransportadoras(somenteAtivos = true): Promise<Transportadora[]> {
+    const res = await api.get<Paginated<Transportadora>>(`/transportadoras${qs({ limit: 200, ativo: somenteAtivos || undefined })}`);
+    return res.data;
+  }
+
+  async createTransportadora(input: { nome: string; cnpj?: string; telefone?: string; email?: string }): Promise<Transportadora> {
+    return api.post<Transportadora>('/transportadoras', input);
+  }
+
+  async updateTransportadora(id: number, input: Partial<{ nome: string; cnpj: string; telefone: string; email: string; ativo: boolean }>): Promise<Transportadora> {
+    return api.put<Transportadora>(`/transportadoras/${id}`, input);
+  }
+
+  async deleteTransportadora(id: number): Promise<void> {
+    await api.delete(`/transportadoras/${id}`);
+  }
+
+  // ---- Geotecnologia: Fornecedores -----------------------------------------------
+
+  async listFornecedoresGeo(somenteAtivos = true): Promise<FornecedorGeo[]> {
+    const res = await api.get<Paginated<FornecedorGeo>>(`/fornecedores-geo${qs({ limit: 200, ativo: somenteAtivos || undefined })}`);
+    return res.data;
+  }
+
+  async createFornecedorGeo(input: { nome: string; cnpj?: string; telefone?: string; email?: string }): Promise<FornecedorGeo> {
+    return api.post<FornecedorGeo>('/fornecedores-geo', input);
+  }
+
+  async updateFornecedorGeo(id: number, input: Partial<{ nome: string; cnpj: string; telefone: string; email: string; ativo: boolean }>): Promise<FornecedorGeo> {
+    return api.put<FornecedorGeo>(`/fornecedores-geo/${id}`, input);
+  }
+
+  async deleteFornecedorGeo(id: number): Promise<void> {
+    await api.delete(`/fornecedores-geo/${id}`);
+  }
+
+  // ---- Geotecnologia: Ocorrências -------------------------------------------------
+
+  async listOcorrencias(status?: StatusOcorrencia): Promise<Ocorrencia[]> {
+    const res = await api.get<Paginated<Ocorrencia>>(`/ocorrencias${qs({ limit: 300, sort: '-data', status })}`);
+    return res.data;
+  }
+
+  async createOcorrencia(input: {
+    transportadoraId?: number | null;
+    fornecedorId?: number | null;
+    notaFiscal?: string | null;
+    data?: string | null;
+    observacoes?: string | null;
+    itens: { radioId: number; numeroOs?: string | null; solicitante?: string | null }[];
+  }): Promise<Ocorrencia> {
+    return api.post<Ocorrencia>('/ocorrencias', input);
+  }
+
+  async updateOcorrencia(
+    id: number,
+    input: Partial<{
+      transportadoraId: number | null;
+      fornecedorId: number | null;
+      notaFiscal: string | null;
+      data: string | null;
+      observacoes: string | null;
+      itens: { radioId: number; numeroOs?: string | null; solicitante?: string | null }[];
+    }>
+  ): Promise<Ocorrencia> {
+    return api.put<Ocorrencia>(`/ocorrencias/${id}`, input);
+  }
+
+  async updateOcorrenciaStatus(id: number, status: StatusOcorrencia): Promise<Ocorrencia> {
+    return api.patch<Ocorrencia>(`/ocorrencias/${id}/status`, { status });
+  }
+
+  async deleteOcorrencia(id: number): Promise<void> {
+    await api.delete(`/ocorrencias/${id}`);
   }
 }
 

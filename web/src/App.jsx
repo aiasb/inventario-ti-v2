@@ -20,6 +20,7 @@ import { ManutencoesRadios } from './pages/ManutencoesRadios.jsx';
 import { ResponsaveisGeo } from './pages/ResponsaveisGeo.jsx';
 import { CadastrosGeo } from './pages/CadastrosGeo.jsx';
 import { RelatoriosGeo } from './pages/RelatoriosGeo.jsx';
+import { Ocorrencias } from './pages/Ocorrencias.jsx';
 
 function ProtectedRoute({ children }) {
   const { usuario, loading } = useAuth();
@@ -92,6 +93,7 @@ export default function App() {
                 <Route path="/responsaveis-geo" element={<ModuleRoute modulo="responsaveisGeo" empresa="geotecnologia"><ResponsaveisGeo /></ModuleRoute>} />
                 <Route path="/cadastros-geo" element={<ModuleRoute modulo="cadastrosGeo" empresa="geotecnologia"><CadastrosGeo /></ModuleRoute>} />
                 <Route path="/relatorios-geo" element={<ModuleRoute modulo={['radios', 'manutencoesRadios']} empresa="geotecnologia"><RelatoriosGeo /></ModuleRoute>} />
+                <Route path="/ocorrencias" element={<ModuleRoute modulo="ocorrencias" empresa="geotecnologia"><Ocorrencias /></ModuleRoute>} />
                 <Route path="/acessos" element={<ModuleRoute modulo="acessos"><Acessos /></ModuleRoute>} />
                 <Route path="/configuracoes" element={<ModuleRoute modulo="configuracoes"><Configuracoes /></ModuleRoute>} />
                 <Route path="*" element={<Navigate to="/" replace />} />

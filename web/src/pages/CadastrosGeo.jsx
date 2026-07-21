@@ -36,6 +36,37 @@ const TABS = [
     fields: [{ name: 'nome', label: 'Nome', required: true }],
     columns: [{ key: 'nome', label: 'Nome' }],
   },
+  {
+    // Usadas na Gestão de Ocorrências (envio de rádios para reparo externo).
+    key: 'transportadoras', label: 'Transportadoras',
+    fields: [
+      { name: 'nome', label: 'Nome', required: true },
+      { name: 'cnpj', label: 'CNPJ' },
+      { name: 'telefone', label: 'Telefone' },
+      { name: 'email', label: 'E-mail' },
+    ],
+    columns: [
+      { key: 'nome', label: 'Nome' },
+      { key: 'cnpj', label: 'CNPJ' },
+      { key: 'telefone', label: 'Telefone' },
+    ],
+  },
+  {
+    // Fornecedor próprio da Geotecnologia — não é o mesmo cadastro de
+    // Fornecedores de TI (ver Cadastros.jsx).
+    key: 'fornecedores-geo', label: 'Fornecedores',
+    fields: [
+      { name: 'nome', label: 'Nome', required: true },
+      { name: 'cnpj', label: 'CNPJ' },
+      { name: 'telefone', label: 'Telefone' },
+      { name: 'email', label: 'E-mail' },
+    ],
+    columns: [
+      { key: 'nome', label: 'Nome' },
+      { key: 'cnpj', label: 'CNPJ' },
+      { key: 'telefone', label: 'Telefone' },
+    ],
+  },
 ];
 
 export function CadastrosGeo() {

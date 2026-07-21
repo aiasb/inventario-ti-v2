@@ -21,6 +21,7 @@ const TAB_ICON: Record<string, keyof typeof Feather.glyphMap> = {
   RadiosTab: 'radio',
   ManutencoesRadiosTab: 'tool',
   RelatoriosGeoTab: 'bar-chart-2',
+  OcorrenciasTab: 'inbox',
   ConfigGeo: 'settings',
 };
 
@@ -35,6 +36,7 @@ const TAB_LABEL: Record<string, string> = {
   RadiosTab: 'Rádios',
   ManutencoesRadiosTab: 'Manutenções',
   RelatoriosGeoTab: 'Relatórios',
+  OcorrenciasTab: 'Ocorrências',
   ConfigGeo: 'Config',
 };
 

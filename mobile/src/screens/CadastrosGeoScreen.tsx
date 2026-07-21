@@ -13,7 +13,7 @@ import { radius, spacing, touchTarget } from '../theme/spacing';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { repository } from '../data/repository';
-import { AreaGeo, Frota, Insumo, StatusAtivo } from '../types/models';
+import { AreaGeo, FornecedorGeo, Frota, Insumo, StatusAtivo, Transportadora } from '../types/models';
 import { RootStackParamList } from '../navigation/types';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -25,7 +25,7 @@ interface FieldConfig {
 }
 
 interface TabConfig {
-  key: 'frotas' | 'areas-geo' | 'status-ativo' | 'insumos';
+  key: 'frotas' | 'areas-geo' | 'status-ativo' | 'insumos' | 'transportadoras' | 'fornecedores-geo';
   label: string;
   fields: FieldConfig[];
   title: (item: any) => string;
@@ -68,12 +68,41 @@ const TABS: TabConfig[] = [
     title: (i: Insumo) => i.nome,
     subtitle: () => '',
   },
+  {
+    // Usadas na Gestão de Ocorrências (envio de rádios para reparo externo).
+    key: 'transportadoras',
+    label: 'Transportadoras',
+    fields: [
+      { key: 'nome', label: 'Nome', required: true },
+      { key: 'cnpj', label: 'CNPJ' },
+      { key: 'telefone', label: 'Telefone' },
+      { key: 'email', label: 'E-mail' },
+    ],
+    title: (t: Transportadora) => t.nome,
+    subtitle: (t: Transportadora) => t.cnpj || '',
+  },
+  {
+    // Fornecedor próprio da Geotecnologia — não é o mesmo cadastro de
+    // Fornecedores de TI (ver CadastrosScreen.tsx).
+    key: 'fornecedores-geo',
+    label: 'Fornecedores',
+    fields: [
+      { key: 'nome', label: 'Nome', required: true },
+      { key: 'cnpj', label: 'CNPJ' },
+      { key: 'telefone', label: 'Telefone' },
+      { key: 'email', label: 'E-mail' },
+    ],
+    title: (f: FornecedorGeo) => f.nome,
+    subtitle: (f: FornecedorGeo) => f.cnpj || '',
+  },
 ];
 
 async function listFor(key: TabConfig['key']): Promise<any[]> {
   if (key === 'frotas') return repository.listFrotas(false);
   if (key === 'status-ativo') return repository.listStatusAtivo(false);
   if (key === 'insumos') return repository.listInsumos(false);
+  if (key === 'transportadoras') return repository.listTransportadoras(false);
+  if (key === 'fornecedores-geo') return repository.listFornecedoresGeo(false);
   return repository.listAreasGeo(false);
 }
 
@@ -81,6 +110,8 @@ async function createFor(key: TabConfig['key'], body: any) {
   if (key === 'frotas') return repository.createFrota(body);
   if (key === 'status-ativo') return repository.createStatusAtivo(body);
   if (key === 'insumos') return repository.createInsumo(body);
+  if (key === 'transportadoras') return repository.createTransportadora(body);
+  if (key === 'fornecedores-geo') return repository.createFornecedorGeo(body);
   return repository.createAreaGeo(body);
 }
 
@@ -88,6 +119,8 @@ async function updateFor(key: TabConfig['key'], id: number, body: any) {
   if (key === 'frotas') return repository.updateFrota(id, body);
   if (key === 'status-ativo') return repository.updateStatusAtivo(id, body);
   if (key === 'insumos') return repository.updateInsumo(id, body);
+  if (key === 'transportadoras') return repository.updateTransportadora(id, body);
+  if (key === 'fornecedores-geo') return repository.updateFornecedorGeo(id, body);
   return repository.updateAreaGeo(id, body);
 }
 
@@ -95,6 +128,8 @@ async function deleteFor(key: TabConfig['key'], id: number) {
   if (key === 'frotas') return repository.deleteFrota(id);
   if (key === 'status-ativo') return repository.deleteStatusAtivo(id);
   if (key === 'insumos') return repository.deleteInsumo(id);
+  if (key === 'transportadoras') return repository.deleteTransportadora(id);
+  if (key === 'fornecedores-geo') return repository.deleteFornecedorGeo(id);
   return repository.deleteAreaGeo(id);
 }
 

@@ -31,6 +31,7 @@ const NAV_GROUPS = [
       { to: '/responsaveis-geo', label: 'Responsáveis', icon: 'person', modulo: 'responsaveisGeo' },
       { to: '/cadastros-geo', label: 'Cadastros', icon: 'grid', modulo: 'cadastrosGeo' },
       { to: '/relatorios-geo', label: 'Relatórios', icon: 'doc', modulo: ['radios', 'manutencoesRadios'] },
+      { to: '/ocorrencias', label: 'Ocorrências', icon: 'list', modulo: 'ocorrencias' },
     ],
   },
   {

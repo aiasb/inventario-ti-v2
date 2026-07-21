@@ -96,6 +96,7 @@ export const MODULOS: { key: string; label: string }[] = [
   { key: 'manutencoesRadios', label: 'Manutenções de Rádios' },
   { key: 'responsaveisGeo', label: 'Responsáveis (Geotecnologia)' },
   { key: 'cadastrosGeo', label: 'Cadastros (Geotecnologia)' },
+  { key: 'ocorrencias', label: 'Ocorrências (Geotecnologia)' },
 ];
 
 export interface Equipamento {
@@ -220,6 +221,60 @@ export interface Insumo {
   id: number;
   nome: string;
   ativo: boolean;
+}
+
+export interface Transportadora {
+  id: number;
+  nome: string;
+  cnpj: string | null;
+  telefone: string | null;
+  email: string | null;
+  ativo: boolean;
+}
+
+export interface FornecedorGeo {
+  id: number;
+  nome: string;
+  cnpj: string | null;
+  telefone: string | null;
+  email: string | null;
+  ativo: boolean;
+}
+
+export const STATUS_OCORRENCIA = ['Em Aberto', 'Enviado', 'Em Analise', 'Finalizado', 'Recusado'] as const;
+export type StatusOcorrencia = (typeof STATUS_OCORRENCIA)[number];
+
+export function statusOcorrenciaLabel(status: StatusOcorrencia): string {
+  if (status === 'Em Analise') return 'Em Análise';
+  if (status === 'Recusado') return 'Recusado/Condenado';
+  return status;
+}
+
+export function ocorrenciaLocked(status: StatusOcorrencia): boolean {
+  return status === 'Finalizado' || status === 'Recusado';
+}
+
+export interface OcorrenciaItem {
+  id: number;
+  radioId: number;
+  numeroSerie: string;
+  modelo: string | null;
+  numeroOs: string | null;
+  solicitante: string | null;
+}
+
+export interface Ocorrencia {
+  id: number;
+  numero: string;
+  transportadora: { id: number; nome: string } | null;
+  fornecedor: { id: number; nome: string } | null;
+  notaFiscal: string | null;
+  status: StatusOcorrencia;
+  data: string;
+  observacoes: string | null;
+  itens: OcorrenciaItem[];
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface ManutencaoRadio {

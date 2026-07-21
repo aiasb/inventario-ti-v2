@@ -25,6 +25,7 @@ const MODULOS = [
   { key: 'manutencoesRadios', label: 'Manutenções (Geo)' },
   { key: 'responsaveisGeo', label: 'Responsáveis (Geo)' },
   { key: 'cadastrosGeo', label: 'Cadastros (Geo)' },
+  { key: 'ocorrencias', label: 'Ocorrências (Geo)' },
 ];
 
 const ACOES = [

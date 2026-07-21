@@ -9,7 +9,7 @@ const router = Router();
 export const MODULOS = [
   'dashboard', 'inventario', 'manutencoes', 'termos',
   'responsaveis', 'acessos', 'cadastros', 'configuracoes',
-  'radios', 'manutencoesRadios', 'responsaveisGeo', 'cadastrosGeo',
+  'radios', 'manutencoesRadios', 'responsaveisGeo', 'cadastrosGeo', 'ocorrencias',
 ];
 
 function emptyPermissoes() {

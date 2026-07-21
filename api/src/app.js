@@ -29,6 +29,9 @@ import responsaveisGeoRoutes from './routes/responsaveisGeo.routes.js';
 import empresasRoutes from './routes/empresas.routes.js';
 import statusAtivoRoutes from './routes/statusAtivo.routes.js';
 import insumosRoutes from './routes/insumos.routes.js';
+import transportadorasRoutes from './routes/transportadoras.routes.js';
+import fornecedoresGeoRoutes from './routes/fornecedoresGeo.routes.js';
+import ocorrenciasRoutes from './routes/ocorrencias.routes.js';
 
 export function createApp() {
   const app = express();
@@ -72,6 +75,9 @@ export function createApp() {
   v1.use('/empresas', empresasRoutes);
   v1.use('/status-ativo', statusAtivoRoutes);
   v1.use('/insumos', insumosRoutes);
+  v1.use('/transportadoras', transportadorasRoutes);
+  v1.use('/fornecedores-geo', fornecedoresGeoRoutes);
+  v1.use('/ocorrencias', ocorrenciasRoutes);
   app.use('/api/v1', v1);
 
   app.use(notFoundHandler);
