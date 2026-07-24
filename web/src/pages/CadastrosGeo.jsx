@@ -1,10 +1,12 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { usePageHeader } from '../context/HeaderContext.jsx';
-import { useFetch } from '../hooks/useApi.js';
+import { useFetch, useLookup } from '../hooks/useApi.js';
 import { api } from '../api/client.js';
 import { Modal } from '../components/Modal.jsx';
 import { Icon } from '../components/Icons.jsx';
 import { useToast } from '../context/ToastContext.jsx';
+import { formatCurrency, radioTipoLabel } from '../utils/format.js';
 
 const TABS = [
   {
@@ -20,8 +22,26 @@ const TABS = [
   },
   {
     key: 'areas-geo', label: 'Áreas',
-    fields: [{ name: 'nome', label: 'Nome', required: true }],
-    columns: [{ key: 'nome', label: 'Nome' }],
+    fields: [
+      { name: 'nome', label: 'Nome', required: true },
+      { name: 'sigla', label: 'Sigla', required: false },
+    ],
+    columns: [
+      { key: 'sigla', label: 'Sigla' },
+      { key: 'nome', label: 'Nome' },
+    ],
+  },
+  {
+    // Não usa o CadastroTable genérico — tem busca, filtro e coluna
+    // calculada (rádios alocados), então é renderizado à parte (ver
+    // ResponsaveisTab abaixo).
+    key: 'responsaveis', label: 'Responsáveis',
+  },
+  {
+    // Idem — busca multi-campo e coluna calculada "Quantidade de rádios"
+    // (ver ModelosTab abaixo). Independente do campo texto radios.modelo —
+    // a contagem compara por nome (correspondência aproximada).
+    key: 'modelos', label: 'Modelos',
   },
   {
     // Compartilhado com TI (ver Cadastros.jsx) — mesma tabela status_ativo.
@@ -84,7 +104,9 @@ export function CadastrosGeo() {
           </div>
         ))}
       </div>
-      <CadastroTable tab={tab} />
+      {tab.key === 'responsaveis' && <ResponsaveisTab />}
+      {tab.key === 'modelos' && <ModelosTab />}
+      {tab.key !== 'responsaveis' && tab.key !== 'modelos' && <CadastroTable tab={tab} />}
     </div>
   );
 }
@@ -213,6 +235,482 @@ function CadastroTable({ tab }) {
                   />
                 </div>
               ))}
+            </div>
+            <div className="modal-footer" style={{ padding: '18px 0 0', border: 'none' }}>
+              <button type="button" className="btn" onClick={() => setShowForm(false)}>Cancelar</button>
+              <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Salvando…' : 'Salvar'}</button>
+            </div>
+          </form>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+function emptyResponsavelForm() {
+  return {
+    nome: '', matricula: '', setor: '', legenda: '', areaId: '', ativo: true,
+  };
+}
+
+function ResponsaveisTab() {
+  const { toast } = useToast();
+  const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [form, setForm] = useState(emptyResponsavelForm());
+  const [saving, setSaving] = useState(false);
+  const [query, setQuery] = useState('');
+  const [showFiltro, setShowFiltro] = useState(false);
+  const [areaFiltro, setAreaFiltro] = useState('');
+
+  const areasGeo = useLookup('/areas-geo');
+  const { data, loading, reload } = useFetch('/responsaveis-geo', { limit: 200, sort: 'nome' });
+  const responsaveis = data?.data || [];
+
+  const { data: radiosData } = useFetch('/radios', { limit: 500 });
+  const radios = radiosData?.data || [];
+
+  const radiosPorResponsavel = useMemo(() => {
+    const map = new Map();
+    for (const r of radios) {
+      if (!r.responsavel) continue;
+      map.set(r.responsavel.id, (map.get(r.responsavel.id) || 0) + 1);
+    }
+    return map;
+  }, [radios]);
+
+  // A coluna/filtro "Área" mostra a sigla cadastrada em Cadastros > Áreas
+  // (não o nome completo) — cai para o nome só se a área não tiver sigla.
+  function areaSigla(id) {
+    const area = areasGeo.find((a) => String(a.id) === String(id));
+    if (!area) return '';
+    return area.sigla || area.nome || '';
+  }
+
+  const listaFiltrada = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return responsaveis.filter((r) => {
+      if (areaFiltro && String(r.areaId) !== String(areaFiltro)) return false;
+      if (!q) return true;
+      const area = areaSigla(r.areaId).toLowerCase();
+      return (
+        r.nome.toLowerCase().includes(q) ||
+        (r.setor || '').toLowerCase().includes(q) ||
+        area.includes(q) ||
+        (r.legenda || '').toLowerCase().includes(q)
+      );
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [responsaveis, query, areaFiltro, areasGeo]);
+
+  function openNew() {
+    setEditingId(null);
+    setForm(emptyResponsavelForm());
+    setShowForm(true);
+  }
+
+  function openEdit(r) {
+    setEditingId(r.id);
+    setForm({
+      nome: r.nome, matricula: r.matricula || '', setor: r.setor || '', legenda: r.legenda || '',
+      areaId: r.areaId || '', ativo: r.ativo,
+    });
+    setShowForm(true);
+  }
+
+  async function remove(r) {
+    try {
+      await api.delete(`/responsaveis-geo/${r.id}`);
+      toast('Responsável removido.');
+      reload();
+    } catch (err) {
+      toast(err.message, 'error');
+    }
+  }
+
+  async function handleSave(e) {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      const payload = { ...form };
+      Object.keys(payload).forEach((k) => {
+        if (payload[k] === '') delete payload[k];
+      });
+      if (editingId) {
+        await api.put(`/responsaveis-geo/${editingId}`, payload);
+        toast('Responsável atualizado.');
+      } else {
+        await api.post('/responsaveis-geo', payload);
+        toast('Responsável cadastrado.');
+      }
+      setShowForm(false);
+      reload();
+    } catch (err) {
+      toast(err.message, 'error');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div>
+      <div className="flex gap-8 mb-16" style={{ alignItems: 'center' }}>
+        <div className="field" style={{ flex: 1, marginBottom: 0 }}>
+          <input
+            className="input"
+            placeholder="Pesquise por nome, setor, área ou legenda"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+        </div>
+        <button className={`btn btn-sm${showFiltro ? ' btn-primary' : ''}`} onClick={() => setShowFiltro((v) => !v)}>
+          <Icon name="filter" size={14} />
+        </button>
+        <button className="btn btn-primary" onClick={openNew}>
+          <Icon name="plus" size={15} /> Novo Responsável
+        </button>
+      </div>
+
+      {showFiltro && (
+        <div className="filters-bar" style={{ marginBottom: 16 }}>
+          <div className="field">
+            <label>Área</label>
+            <select className="input" value={areaFiltro} onChange={(e) => setAreaFiltro(e.target.value)}>
+              <option value="">Todas</option>
+              {areasGeo.map((a) => (
+                <option key={a.id} value={a.id}>{a.sigla ? `${a.sigla} · ${a.nome}` : a.nome}</option>
+              ))}
+            </select>
+          </div>
+          {areaFiltro && (
+            <button className="btn btn-ghost btn-sm" onClick={() => setAreaFiltro('')} style={{ alignSelf: 'flex-end' }}>
+              <Icon name="x" size={13} /> Limpar
+            </button>
+          )}
+        </div>
+      )}
+
+      {loading && <div className="center-py"><div className="spinner" /></div>}
+
+      {!loading && listaFiltrada.length === 0 && (
+        <div className="empty-state"><p>Nenhum responsável encontrado.</p></div>
+      )}
+
+      {!loading && listaFiltrada.length > 0 && (
+        <div className="table-wrap">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Nome do responsável</th><th>Setor</th><th>Área</th><th>Legenda</th>
+                <th>Rádios alocados</th><th style={{ width: 100 }}>Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              {listaFiltrada.map((r) => {
+                const count = radiosPorResponsavel.get(r.id) || 0;
+                return (
+                  <tr key={r.id}>
+                    <td>{r.nome}</td>
+                    <td className="text-secondary">{r.setor || '—'}</td>
+                    <td className="text-secondary">{areaSigla(r.areaId) || '—'}</td>
+                    <td className="mono" style={{ color: 'var(--accent)' }}>{r.legenda || '—'}</td>
+                    <td>
+                      <Link to={`/radios?responsavelId=${r.id}`} className="mono" style={{ color: 'var(--accent)' }}>
+                        {count} rádio{count === 1 ? '' : 's'} ↗
+                      </Link>
+                    </td>
+                    <td>
+                      <div className="flex gap-8">
+                        <button className="btn btn-sm" title="Editar" onClick={() => openEdit(r)}>
+                          <Icon name="edit" size={13} />
+                        </button>
+                        <button className="btn btn-sm btn-danger" title="Excluir" onClick={() => remove(r)}>
+                          <Icon name="trash" size={13} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {showForm && (
+        <Modal title={editingId ? 'Editar responsável' : 'Novo responsável'} onClose={() => setShowForm(false)}>
+          <form onSubmit={handleSave}>
+            <div className="form-grid">
+              <div className="field full">
+                <label>Nome *</label>
+                <input className="input" required value={form.nome} onChange={(e) => setForm((f) => ({ ...f, nome: e.target.value }))} />
+              </div>
+              <div className="field">
+                <label>Matrícula</label>
+                <input className="input" value={form.matricula} onChange={(e) => setForm((f) => ({ ...f, matricula: e.target.value }))} />
+              </div>
+              <div className="field">
+                <label>Setor</label>
+                <input className="input" value={form.setor} onChange={(e) => setForm((f) => ({ ...f, setor: e.target.value }))} />
+              </div>
+              <div className="field">
+                <label>Legenda</label>
+                <input className="input" placeholder="Ex.: IN" value={form.legenda} onChange={(e) => setForm((f) => ({ ...f, legenda: e.target.value }))} />
+              </div>
+              <div className="field full">
+                <label>Área</label>
+                <select className="input" value={form.areaId} onChange={(e) => setForm((f) => ({ ...f, areaId: e.target.value }))}>
+                  <option value="">—</option>
+                  {areasGeo.filter((a) => a.ativo || String(a.id) === String(form.areaId)).map((a) => (
+                    <option key={a.id} value={a.id}>{a.sigla ? `${a.sigla} · ` : ''}{a.nome}{!a.ativo ? ' (inativa)' : ''}</option>
+                  ))}
+                </select>
+              </div>
+              {editingId && (
+                <div className="field full">
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, textTransform: 'none' }}>
+                    <input type="checkbox" className="checkbox" checked={form.ativo} onChange={(e) => setForm((f) => ({ ...f, ativo: e.target.checked }))} />
+                    Ativo
+                  </label>
+                </div>
+              )}
+            </div>
+            <div className="modal-footer" style={{ padding: '18px 0 0', border: 'none' }}>
+              <button type="button" className="btn" onClick={() => setShowForm(false)}>Cancelar</button>
+              <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Salvando…' : 'Salvar'}</button>
+            </div>
+          </form>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+function emptyModeloForm() {
+  return { codigoChb: '', nome: '', serial: '', tipo: '', valor: '', ativo: true };
+}
+
+function ModelosTab() {
+  const { toast } = useToast();
+  const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [form, setForm] = useState(emptyModeloForm());
+  const [saving, setSaving] = useState(false);
+  const [query, setQuery] = useState('');
+  const [showFiltro, setShowFiltro] = useState(false);
+  const [tipoFiltro, setTipoFiltro] = useState('');
+
+  const { data, loading, reload } = useFetch('/modelos-radio', { limit: 200, sort: 'nome' });
+  const modelos = data?.data || [];
+
+  const { data: radiosData } = useFetch('/radios', { limit: 500 });
+  const radios = radiosData?.data || [];
+
+  // "Quantidade de rádios" compara o texto de radios.modelo com o nome
+  // cadastrado aqui (sem FK — não há vínculo entre as duas tabelas).
+  const radiosPorModelo = useMemo(() => {
+    const map = new Map();
+    for (const r of radios) {
+      if (!r.modelo) continue;
+      const key = r.modelo.trim().toLowerCase();
+      map.set(key, (map.get(key) || 0) + 1);
+    }
+    return map;
+  }, [radios]);
+
+  function quantidadeFor(nome) {
+    return radiosPorModelo.get((nome || '').trim().toLowerCase()) || 0;
+  }
+
+  const listaFiltrada = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return modelos.filter((m) => {
+      if (tipoFiltro && m.tipo !== tipoFiltro) return false;
+      if (!q) return true;
+      return (
+        (m.codigoChb || '').toLowerCase().includes(q) ||
+        m.nome.toLowerCase().includes(q) ||
+        (m.serial || '').toLowerCase().includes(q) ||
+        radioTipoLabel(m.tipo).toLowerCase().includes(q) ||
+        String(m.valor || '').toLowerCase().includes(q)
+      );
+    });
+  }, [modelos, query, tipoFiltro]);
+
+  function openNew() {
+    setEditingId(null);
+    setForm(emptyModeloForm());
+    setShowForm(true);
+  }
+
+  function openEdit(m) {
+    setEditingId(m.id);
+    setForm({
+      codigoChb: m.codigoChb || '', nome: m.nome, serial: m.serial || '',
+      tipo: m.tipo || '', valor: m.valor || '', ativo: m.ativo,
+    });
+    setShowForm(true);
+  }
+
+  async function remove(m) {
+    try {
+      await api.delete(`/modelos-radio/${m.id}`);
+      toast('Modelo removido.');
+      reload();
+    } catch (err) {
+      toast(err.message, 'error');
+    }
+  }
+
+  async function handleSave(e) {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      const payload = { ...form };
+      Object.keys(payload).forEach((k) => {
+        if (payload[k] === '') delete payload[k];
+      });
+      if (editingId) {
+        await api.put(`/modelos-radio/${editingId}`, payload);
+        toast('Modelo atualizado.');
+      } else {
+        await api.post('/modelos-radio', payload);
+        toast('Modelo cadastrado.');
+      }
+      setShowForm(false);
+      reload();
+    } catch (err) {
+      toast(err.message, 'error');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div>
+      <div className="flex gap-8 mb-16" style={{ alignItems: 'center' }}>
+        <div className="field" style={{ flex: 1, marginBottom: 0 }}>
+          <input
+            className="input"
+            placeholder="Pesquise por código, nome, serial, tipo ou valor"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+        </div>
+        <button className={`btn btn-sm${showFiltro ? ' btn-primary' : ''}`} onClick={() => setShowFiltro((v) => !v)}>
+          <Icon name="filter" size={14} />
+        </button>
+        <button className="btn btn-primary" onClick={openNew}>
+          <Icon name="plus" size={15} /> Novo Modelo
+        </button>
+      </div>
+
+      {showFiltro && (
+        <div className="filters-bar" style={{ marginBottom: 16 }}>
+          <div className="field">
+            <label>Tipo</label>
+            <select className="input" value={tipoFiltro} onChange={(e) => setTipoFiltro(e.target.value)}>
+              <option value="">Todos</option>
+              <option value="Movel">Móvel</option>
+              <option value="Portatil">Portátil</option>
+            </select>
+          </div>
+          {tipoFiltro && (
+            <button className="btn btn-ghost btn-sm" onClick={() => setTipoFiltro('')} style={{ alignSelf: 'flex-end' }}>
+              <Icon name="x" size={13} /> Limpar
+            </button>
+          )}
+        </div>
+      )}
+
+      {loading && <div className="center-py"><div className="spinner" /></div>}
+
+      {!loading && listaFiltrada.length === 0 && (
+        <div className="empty-state"><p>Nenhum modelo encontrado.</p></div>
+      )}
+
+      {!loading && listaFiltrada.length > 0 && (
+        <div className="table-wrap">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Código do CHB</th><th>Nome</th><th>Serial</th><th>Tipo</th><th>Valor</th>
+                <th>Quantidade de rádios</th><th style={{ width: 100 }}>Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              {listaFiltrada.map((m) => {
+                const count = quantidadeFor(m.nome);
+                return (
+                  <tr key={m.id}>
+                    <td className="mono">{m.codigoChb || '—'}</td>
+                    <td>{m.nome}</td>
+                    <td className="mono">{m.serial || '—'}</td>
+                    <td>{radioTipoLabel(m.tipo) || '—'}</td>
+                    <td>{m.valor != null && m.valor !== '' ? formatCurrency(m.valor) : '—'}</td>
+                    <td>
+                      <Link to={`/radios?modelo=${encodeURIComponent(m.nome)}`} className="mono" style={{ color: 'var(--accent)' }}>
+                        {count} rádio{count === 1 ? '' : 's'} ↗
+                      </Link>
+                    </td>
+                    <td>
+                      <div className="flex gap-8">
+                        <button className="btn btn-sm" title="Editar" onClick={() => openEdit(m)}>
+                          <Icon name="edit" size={13} />
+                        </button>
+                        <button className="btn btn-sm btn-danger" title="Excluir" onClick={() => remove(m)}>
+                          <Icon name="trash" size={13} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {showForm && (
+        <Modal title={editingId ? 'Editar modelo' : 'Novo modelo'} onClose={() => setShowForm(false)}>
+          <form onSubmit={handleSave}>
+            <div className="form-grid">
+              <div className="field">
+                <label>Código do CHB</label>
+                <input className="input" value={form.codigoChb} onChange={(e) => setForm((f) => ({ ...f, codigoChb: e.target.value }))} />
+              </div>
+              <div className="field">
+                <label>Nome *</label>
+                <input className="input" required value={form.nome} onChange={(e) => setForm((f) => ({ ...f, nome: e.target.value }))} />
+              </div>
+              <div className="field">
+                <label>Serial</label>
+                <input className="input" value={form.serial} onChange={(e) => setForm((f) => ({ ...f, serial: e.target.value }))} />
+              </div>
+              <div className="field">
+                <label>Tipo</label>
+                <select className="input" value={form.tipo} onChange={(e) => setForm((f) => ({ ...f, tipo: e.target.value }))}>
+                  <option value="">—</option>
+                  <option value="Movel">Móvel</option>
+                  <option value="Portatil">Portátil</option>
+                </select>
+              </div>
+              <div className="field full">
+                <label>Valor</label>
+                <input
+                  className="input" type="number" step="0.01" min="0"
+                  value={form.valor}
+                  onChange={(e) => setForm((f) => ({ ...f, valor: e.target.value }))}
+                />
+              </div>
+              {editingId && (
+                <div className="field full">
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, textTransform: 'none' }}>
+                    <input type="checkbox" className="checkbox" checked={form.ativo} onChange={(e) => setForm((f) => ({ ...f, ativo: e.target.checked }))} />
+                    Ativo
+                  </label>
+                </div>
+              )}
             </div>
             <div className="modal-footer" style={{ padding: '18px 0 0', border: 'none' }}>
               <button type="button" className="btn" onClick={() => setShowForm(false)}>Cancelar</button>

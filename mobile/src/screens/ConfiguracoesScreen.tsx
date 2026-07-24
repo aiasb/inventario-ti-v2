@@ -150,13 +150,13 @@ export function ConfiguracoesScreen() {
           </SectionCard>
         )}
 
-        {empresaAtual === 'geotecnologia' && (podeVer('responsaveisGeo') || podeVer('cadastrosGeo') || podeVer('acessos')) && (
+        {empresaAtual === 'geotecnologia' && (podeVer('cadastrosGeo') || podeVer('responsaveisGeo') || podeVer('colaboradores') || podeVer('acessos')) && (
           <SectionCard title="Administração" style={{ marginBottom: spacing.lg }}>
-            {podeVer('responsaveisGeo') && (
-              <LinkRow title="Responsáveis" onPress={() => navigation.navigate('ResponsaveisGeo')} />
+            {podeVer('colaboradores') && (
+              <LinkRow title="Colaboradores" onPress={() => navigation.navigate('Colaboradores')} />
             )}
-            {podeVer('cadastrosGeo') && (
-              <LinkRow title="Cadastros" value="frotas, áreas" onPress={() => navigation.navigate('CadastrosGeo')} />
+            {(podeVer('cadastrosGeo') || podeVer('responsaveisGeo')) && (
+              <LinkRow title="Cadastros" value="frotas, áreas, responsáveis" onPress={() => navigation.navigate('CadastrosGeo')} />
             )}
             {podeVer('acessos') && (
               <LinkRow title="Acessos" value="usuários e perfis" onPress={() => navigation.navigate('Acessos')} isLast />

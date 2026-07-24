@@ -1,11 +1,10 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { FlatList, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { FlatList, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FormField } from '../components/FormField';
-import { SelectField } from '../components/SelectField';
 import { BottomSheet } from '../components/BottomSheet';
 import { colors } from '../theme/colors';
 import { fonts } from '../theme/typography';
@@ -13,26 +12,24 @@ import { radius, spacing, touchTarget } from '../theme/spacing';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { repository } from '../data/repository';
-import { AreaGeo, ResponsavelGeo } from '../types/models';
+import { Colaborador } from '../types/models';
 import { RootStackParamList } from '../navigation/types';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
-const SEM_AREA = 'Sem área';
-
 function emptyForm() {
-  return { nome: '', matricula: '', cpf: '', areaNome: SEM_AREA };
+  return { matricula: '', nome: '', funcao: '', departamento: '', ativo: true };
 }
 
-export function ResponsaveisGeoScreen() {
+export function ColaboradoresScreen() {
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
   const { podeCriar, podeEditar, podeExcluir } = useAuth();
   const { showToast } = useToast();
 
-  const [items, setItems] = useState<ResponsavelGeo[]>([]);
-  const [areas, setAreas] = useState<AreaGeo[]>([]);
+  const [items, setItems] = useState<Colaborador[]>([]);
   const [loading, setLoading] = useState(true);
+  const [query, setQuery] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState(emptyForm());
@@ -41,9 +38,7 @@ export function ResponsaveisGeoScreen() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [resp, areaList] = await Promise.all([repository.listResponsaveisGeo(false), repository.listAreasGeo(false)]);
-      setItems(resp);
-      setAreas(areaList);
+      setItems(await repository.listColaboradores(false));
     } finally {
       setLoading(false);
     }
@@ -53,9 +48,17 @@ export function ResponsaveisGeoScreen() {
     load();
   }, [load]);
 
-  function areaNomeDe(areaId: number | null): string {
-    return areas.find((a) => a.id === areaId)?.nome || '—';
-  }
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return items;
+    return items.filter(
+      (c) =>
+        (c.matricula || '').toLowerCase().includes(q) ||
+        c.nome.toLowerCase().includes(q) ||
+        (c.funcao || '').toLowerCase().includes(q) ||
+        (c.departamento || '').toLowerCase().includes(q)
+    );
+  }, [items, query]);
 
   function openNew() {
     setEditingId(null);
@@ -63,13 +66,14 @@ export function ResponsaveisGeoScreen() {
     setShowForm(true);
   }
 
-  function openEdit(item: ResponsavelGeo) {
+  function openEdit(item: Colaborador) {
     setEditingId(item.id);
     setForm({
-      nome: item.nome,
       matricula: item.matricula || '',
-      cpf: item.cpf || '',
-      areaNome: areaNomeDe(item.areaId) === '—' ? SEM_AREA : areaNomeDe(item.areaId),
+      nome: item.nome,
+      funcao: item.funcao || '',
+      departamento: item.departamento || '',
+      ativo: item.ativo,
     });
     setShowForm(true);
   }
@@ -79,21 +83,21 @@ export function ResponsaveisGeoScreen() {
       showToast('Preencha o nome.');
       return;
     }
-    const area = areas.find((a) => a.nome === form.areaNome);
     setSaving(true);
     try {
       const body = {
-        nome: form.nome.trim(),
         matricula: form.matricula.trim() || null,
-        cpf: form.cpf.trim() || null,
-        areaId: area?.id || null,
+        nome: form.nome.trim(),
+        funcao: form.funcao.trim() || null,
+        departamento: form.departamento.trim() || null,
+        ativo: form.ativo,
       };
       if (editingId) {
-        await repository.updateResponsavelGeo(editingId, body);
-        showToast('Responsável atualizado.');
+        await repository.updateColaborador(editingId, body);
+        showToast('Colaborador atualizado.');
       } else {
-        await repository.createResponsavelGeo(body);
-        showToast('Responsável criado.');
+        await repository.createColaborador(body);
+        showToast('Colaborador criado.');
       }
       setShowForm(false);
       await load();
@@ -104,26 +108,15 @@ export function ResponsaveisGeoScreen() {
     }
   }
 
-  async function toggleAtivo(item: ResponsavelGeo) {
+  async function remove(item: Colaborador) {
     try {
-      await repository.updateResponsavelGeo(item.id, { ativo: !item.ativo });
-      await load();
-    } catch (err: any) {
-      showToast(err?.message || 'Não foi possível atualizar.');
-    }
-  }
-
-  async function remove(item: ResponsavelGeo) {
-    try {
-      await repository.deleteResponsavelGeo(item.id);
-      showToast('Responsável removido.');
+      await repository.deleteColaborador(item.id);
+      showToast('Colaborador removido.');
       await load();
     } catch (err: any) {
       showToast(err?.message || 'Não foi possível remover.');
     }
   }
-
-  const areaOptions = [SEM_AREA, ...areas.map((a) => a.nome)];
 
   return (
     <View style={styles.screen}>
@@ -131,44 +124,50 @@ export function ResponsaveisGeoScreen() {
         <Pressable style={styles.backBtn} onPress={() => navigation.goBack()}>
           <Feather name="chevron-left" size={20} color={colors.text} />
         </Pressable>
-        <Text style={styles.headerTitle}>Responsáveis (Geo)</Text>
-        {podeCriar('responsaveisGeo') && (
+        <Text style={styles.headerTitle}>Colaboradores</Text>
+        {podeCriar('colaboradores') && (
           <Pressable style={styles.addBtn} onPress={openNew}>
             <Feather name="plus" size={18} color="#06210b" />
           </Pressable>
         )}
       </View>
 
+      <View style={styles.searchRow}>
+        <View style={styles.searchBox}>
+          <Feather name="search" size={15} color={colors.textMuted} />
+          <TextInput
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Matrícula, nome, função ou departamento…"
+            placeholderTextColor={colors.textMuted}
+            style={styles.searchInput}
+          />
+        </View>
+      </View>
+
       {loading && <View style={styles.center}><Text style={styles.emptyText}>Carregando…</Text></View>}
 
       {!loading && (
         <FlatList
-          data={items}
+          data={filtered}
           keyExtractor={(item) => String(item.id)}
           contentContainerStyle={styles.listContent}
-          ListEmptyComponent={<View style={styles.center}><Text style={styles.emptyText}>Nenhum responsável cadastrado.</Text></View>}
+          ListEmptyComponent={<View style={styles.center}><Text style={styles.emptyText}>Nenhum colaborador encontrado.</Text></View>}
           renderItem={({ item }) => (
             <View style={styles.row}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.rowTitle}>{item.nome}</Text>
-                <Text style={styles.rowSubtitle}>
-                  {item.matricula || 'sem matrícula'} · {areaNomeDe(item.areaId)}
+                <Text style={styles.rowSubtitle} numberOfLines={1}>
+                  {item.matricula || 'sem matrícula'} · {item.funcao || 'sem função'}
                 </Text>
+                <Text style={styles.rowSubtitle} numberOfLines={1}>{item.departamento || 'sem departamento'}</Text>
               </View>
-              {podeEditar('responsaveisGeo') && (
-                <Switch
-                  value={item.ativo}
-                  onValueChange={() => toggleAtivo(item)}
-                  trackColor={{ false: colors.border, true: colors.accentGradientFrom }}
-                  thumbColor="#fff"
-                />
-              )}
-              {podeEditar('responsaveisGeo') && (
+              {podeEditar('colaboradores') && (
                 <Pressable style={styles.iconBtn} onPress={() => openEdit(item)}>
                   <Feather name="edit-2" size={15} color={colors.textSecondary} />
                 </Pressable>
               )}
-              {podeExcluir('responsaveisGeo') && (
+              {podeExcluir('colaboradores') && (
                 <Pressable style={styles.iconBtn} onPress={() => remove(item)}>
                   <Feather name="trash-2" size={15} color={colors.danger} />
                 </Pressable>
@@ -179,12 +178,23 @@ export function ResponsaveisGeoScreen() {
       )}
 
       <BottomSheet visible={showForm} onClose={() => setShowForm(false)} heightPercent={0.6}>
-        <Text style={styles.sheetTitle}>{editingId ? 'Editar responsável' : 'Novo responsável'}</Text>
+        <Text style={styles.sheetTitle}>{editingId ? 'Editar colaborador' : 'Novo colaborador'}</Text>
         <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-          <FormField label="Nome" required value={form.nome} onChangeText={(v) => setForm((f) => ({ ...f, nome: v }))} />
           <FormField label="Matrícula" value={form.matricula} onChangeText={(v) => setForm((f) => ({ ...f, matricula: v }))} />
-          <FormField label="CPF" value={form.cpf} onChangeText={(v) => setForm((f) => ({ ...f, cpf: v }))} />
-          <SelectField label="Área" value={form.areaNome} options={areaOptions} onChange={(v) => setForm((f) => ({ ...f, areaNome: v }))} />
+          <FormField label="Nome" required value={form.nome} onChangeText={(v) => setForm((f) => ({ ...f, nome: v }))} />
+          <FormField label="Função" value={form.funcao} onChangeText={(v) => setForm((f) => ({ ...f, funcao: v }))} />
+          <FormField label="Departamento" value={form.departamento} onChangeText={(v) => setForm((f) => ({ ...f, departamento: v }))} />
+          {editingId && (
+            <View style={styles.ativoRow}>
+              <Text style={styles.ativoLabel}>Ativo</Text>
+              <Switch
+                value={form.ativo}
+                onValueChange={(v) => setForm((f) => ({ ...f, ativo: v }))}
+                trackColor={{ false: colors.border, true: colors.accentGradientFrom }}
+                thumbColor="#fff"
+              />
+            </View>
+          )}
         </ScrollView>
         <View style={styles.actions}>
           <Pressable style={styles.cancelBtn} onPress={() => setShowForm(false)}>
@@ -217,6 +227,28 @@ const styles = StyleSheet.create({
     width: 36, height: 36, borderRadius: 10, backgroundColor: colors.accent,
     alignItems: 'center', justifyContent: 'center',
   },
+  searchRow: {
+    paddingHorizontal: spacing.xl,
+    marginBottom: spacing.md,
+  },
+  searchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.surfaceFrom,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    height: 44,
+  },
+  searchInput: {
+    flex: 1,
+    color: colors.text,
+    fontFamily: fonts.bodyRegular,
+    fontSize: 14,
+    height: 44,
+  },
   center: { alignItems: 'center', paddingTop: 60 },
   emptyText: { fontFamily: fonts.bodyRegular, fontSize: 13, color: colors.textMuted },
   listContent: { paddingHorizontal: spacing.xl, paddingBottom: 40 },
@@ -228,6 +260,14 @@ const styles = StyleSheet.create({
   rowSubtitle: { fontFamily: fonts.bodyRegular, fontSize: 11.5, color: colors.textMuted, marginTop: 2 },
   iconBtn: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
   sheetTitle: { fontFamily: fonts.titleSemiBold, fontSize: 18, color: colors.text, marginBottom: spacing.md },
+  ativoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  ativoLabel: { fontFamily: fonts.bodyMedium, fontSize: 13.5, color: colors.text },
   actions: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm, paddingTop: spacing.sm },
   cancelBtn: {
     flex: 1, height: touchTarget, borderRadius: radius.sm, borderWidth: 1,

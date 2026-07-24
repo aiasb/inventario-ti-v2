@@ -31,8 +31,8 @@ export type RootStackParamList = {
   Radios: undefined;
   DetalheRadio: { id: number };
   ManutencoesRadios: undefined;
-  ResponsaveisGeo: undefined;
-  CadastrosGeo: { tab?: 'frotas' | 'areas-geo' | 'status-ativo' | 'insumos' } | undefined;
+  Colaboradores: undefined;
+  CadastrosGeo: { tab?: 'frotas' | 'areas-geo' | 'responsaveis' | 'modelos' | 'status-ativo' | 'insumos' | 'transportadoras' | 'fornecedores-geo' } | undefined;
 };
 
 declare global {

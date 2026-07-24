@@ -17,10 +17,10 @@ import { Cadastros } from './pages/Cadastros.jsx';
 import { Configuracoes } from './pages/Configuracoes.jsx';
 import { Radios } from './pages/Radios.jsx';
 import { ManutencoesRadios } from './pages/ManutencoesRadios.jsx';
-import { ResponsaveisGeo } from './pages/ResponsaveisGeo.jsx';
 import { CadastrosGeo } from './pages/CadastrosGeo.jsx';
 import { RelatoriosGeo } from './pages/RelatoriosGeo.jsx';
 import { Ocorrencias } from './pages/Ocorrencias.jsx';
+import { Colaboradores } from './pages/Colaboradores.jsx';
 
 function ProtectedRoute({ children }) {
   const { usuario, loading } = useAuth();
@@ -90,10 +90,10 @@ export default function App() {
                 <Route path="/cadastros" element={<ModuleRoute modulo="cadastros" empresa="ti"><Cadastros /></ModuleRoute>} />
                 <Route path="/radios" element={<ModuleRoute modulo="radios" empresa="geotecnologia"><Radios /></ModuleRoute>} />
                 <Route path="/manutencoes-radios" element={<ModuleRoute modulo="manutencoesRadios" empresa="geotecnologia"><ManutencoesRadios /></ModuleRoute>} />
-                <Route path="/responsaveis-geo" element={<ModuleRoute modulo="responsaveisGeo" empresa="geotecnologia"><ResponsaveisGeo /></ModuleRoute>} />
-                <Route path="/cadastros-geo" element={<ModuleRoute modulo="cadastrosGeo" empresa="geotecnologia"><CadastrosGeo /></ModuleRoute>} />
+                <Route path="/cadastros-geo" element={<ModuleRoute modulo={['cadastrosGeo', 'responsaveisGeo']} empresa="geotecnologia"><CadastrosGeo /></ModuleRoute>} />
                 <Route path="/relatorios-geo" element={<ModuleRoute modulo={['radios', 'manutencoesRadios']} empresa="geotecnologia"><RelatoriosGeo /></ModuleRoute>} />
                 <Route path="/ocorrencias" element={<ModuleRoute modulo="ocorrencias" empresa="geotecnologia"><Ocorrencias /></ModuleRoute>} />
+                <Route path="/colaboradores" element={<ModuleRoute modulo="colaboradores" empresa="geotecnologia"><Colaboradores /></ModuleRoute>} />
                 <Route path="/acessos" element={<ModuleRoute modulo="acessos"><Acessos /></ModuleRoute>} />
                 <Route path="/configuracoes" element={<ModuleRoute modulo="configuracoes"><Configuracoes /></ModuleRoute>} />
                 <Route path="*" element={<Navigate to="/" replace />} />

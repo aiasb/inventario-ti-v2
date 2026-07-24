@@ -13,7 +13,7 @@ import { useToast } from '../context/ToastContext';
 import { formatDate } from '../utils/format';
 import { qs } from '../api/client';
 import { baixarRelatorioPdf, compartilharCsv } from '../utils/relatoriosExport';
-import { ManutencaoRadio, Radio, StatusManutencao, statusManutencaoLabel } from '../types/models';
+import { ManutencaoRadio, Radio, radioStatusLabel, StatusManutencao, statusManutencaoLabel } from '../types/models';
 
 type Tab = 'radios' | 'os';
 
@@ -127,7 +127,7 @@ export function RelatoriosGeoScreen() {
         const rows = radiosFiltrados.map((r) => [
           r.numeroSerie, r.modelo || '', r.idDigital || '', r.idAnalogico || '',
           r.frota ? `${r.frota.numero} - ${r.frota.nome}` : '', r.area?.nome || '', r.responsavel?.nome || '',
-          r.status, formatDate(r.dataAquisicao),
+          radioStatusLabel(r.status), formatDate(r.dataAquisicao),
         ]);
         await compartilharCsv('relatorio-radios.csv', header, rows, 'Relatório de Rádios');
       } else {
@@ -247,7 +247,7 @@ export function RelatoriosGeoScreen() {
             <View style={styles.row}>
               <View style={styles.rowTop}>
                 <Text style={styles.rowOs}>{item.numeroSerie}</Text>
-                <StatusBadge status={item.status} size="sm" />
+                <StatusBadge status={item.status} size="sm" label={radioStatusLabel(item.status)} />
               </View>
               <Text style={styles.rowSubtitle} numberOfLines={1}>{item.modelo || 'sem modelo'}</Text>
               <Text style={styles.rowMeta} numberOfLines={1}>

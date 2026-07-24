@@ -97,6 +97,7 @@ export const MODULOS: { key: string; label: string }[] = [
   { key: 'responsaveisGeo', label: 'Responsáveis (Geotecnologia)' },
   { key: 'cadastrosGeo', label: 'Cadastros (Geotecnologia)' },
   { key: 'ocorrencias', label: 'Ocorrências (Geotecnologia)' },
+  { key: 'colaboradores', label: 'Colaboradores (Geotecnologia)' },
 ];
 
 export interface Equipamento {
@@ -187,6 +188,7 @@ export interface Frota {
 export interface AreaGeo {
   id: number;
   nome: string;
+  sigla: string | null;
   ativo: boolean;
 }
 
@@ -195,7 +197,23 @@ export interface ResponsavelGeo {
   nome: string;
   matricula: string | null;
   cpf: string | null;
+  funcao: string | null;
+  departamento: string | null;
+  setor: string | null;
+  legenda: string | null;
   areaId: number | null;
+  ativo: boolean;
+}
+
+export type TipoRadio = 'Movel' | 'Portatil';
+
+export interface ModeloRadio {
+  id: number;
+  codigoChb: string | null;
+  nome: string;
+  serial: string | null;
+  tipo: TipoRadio | null;
+  valor: string | null;
   ativo: boolean;
 }
 
@@ -205,6 +223,9 @@ export interface Radio {
   modelo: string | null;
   idDigital: string | null;
   idAnalogico: string | null;
+  tipo: TipoRadio | null;
+  colaboradorResponsavel: string | null;
+  codigo: string | null;
   frota: Frota | null;
   area: AreaGeo | null;
   responsavel: { id: number; nome: string } | null;
@@ -217,9 +238,38 @@ export interface Radio {
   pendingSync?: boolean;
 }
 
+/** ID exibido na listagem de rádios = sigla da área + código informado no cadastro. */
+export function radioIdExibicao(radio: Pick<Radio, 'area' | 'codigo'>): string {
+  const texto = `${radio.area?.sigla || ''}${radio.codigo || ''}`;
+  return texto || '—';
+}
+
+export function radioTipoLabel(tipo: TipoRadio | null): string {
+  if (tipo === 'Movel') return 'Móvel';
+  if (tipo === 'Portatil') return 'Portátil';
+  return '—';
+}
+
+/** Status "Ativo" de rádios é exibido como "Em Campo" — o valor gravado no
+ * banco continua "Ativo" (mesma automação de Ocorrências), só o rótulo muda,
+ * e só nas telas de rádio (StatusBadge/statusLabel seguem usados por TI). */
+export function radioStatusLabel(status: StatusEquipamento): string {
+  if (status === 'Ativo') return 'Em Campo';
+  return statusLabel(status);
+}
+
 export interface Insumo {
   id: number;
   nome: string;
+  ativo: boolean;
+}
+
+export interface Colaborador {
+  id: number;
+  matricula: string | null;
+  nome: string;
+  funcao: string | null;
+  departamento: string | null;
   ativo: boolean;
 }
 
@@ -259,6 +309,7 @@ export interface OcorrenciaItem {
   radioId: number;
   numeroSerie: string;
   modelo: string | null;
+  radioStatus: StatusEquipamento;
   numeroOs: string | null;
   solicitante: string | null;
 }

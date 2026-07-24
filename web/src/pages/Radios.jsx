@@ -7,22 +7,32 @@ import { FiltersBar } from '../components/FiltersBar.jsx';
 import { StatusBadge } from '../components/StatusBadge.jsx';
 import { Drawer } from '../components/Drawer.jsx';
 import { Modal } from '../components/Modal.jsx';
+import { ConfirmDialog } from '../components/ConfirmDialog.jsx';
 import { Icon } from '../components/Icons.jsx';
 import { useToast } from '../context/ToastContext.jsx';
-import { formatDate } from '../utils/format.js';
+import { formatDate, radioStatusLabel, radioTipoLabel } from '../utils/format.js';
 
 const COLUMNS = [
-  { key: 'numeroSerie', label: 'Nº de série' },
+  { key: 'numeroSerie', label: 'Serial' },
+  { key: null, label: 'ID' },
+  { key: 'dataAquisicao', label: 'Data de Aquisição' },
+  { key: 'tipo', label: 'Tipo' },
   { key: 'modelo', label: 'Modelo' },
-  { key: 'frota', label: 'Frota' },
+  { key: null, label: 'Colaborador Responsável' },
   { key: 'area', label: 'Área' },
   { key: 'responsavel', label: 'Responsável' },
   { key: 'status', label: 'Status' },
 ];
 
+function radioId(r) {
+  const texto = `${r.area?.sigla || ''}${r.codigo || ''}`;
+  return texto || '—';
+}
+
 function emptyForm() {
   return {
-    numeroSerie: '', modelo: '', idDigital: '', idAnalogico: '', frotaId: '', areaId: '', responsavelId: '',
+    numeroSerie: '', modelo: '', idDigital: '', idAnalogico: '', tipo: '', codigo: '',
+    colaboradorResponsavel: '', frotaId: '', areaId: '', responsavelId: '',
     status: 'Ativo', dataAquisicao: '', observacoes: '',
   };
 }
@@ -32,24 +42,28 @@ export function Radios() {
   const [searchParams, setSearchParams] = useSearchParams();
 
   const [filters, setFilters] = useState({});
-  const [colFilters, setColFilters] = useState({ numeroSerie: '', frotaId: '' });
+  const [colFilters, setColFilters] = useState({ numeroSerie: '', frotaId: '', responsavelId: '', modelo: '' });
   const [sort, setSort] = useState('-updatedAt');
   const [page, setPage] = useState(1);
-  const [drawerId, setDrawerId] = useState(null);
+  const [infoId, setInfoId] = useState(null);
+  const [historicoId, setHistoricoId] = useState(null);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(emptyForm());
   const [saving, setSaving] = useState(false);
+  const [confirmCondenar, setConfirmCondenar] = useState(null);
+  const [confirmDelete, setConfirmDelete] = useState(null);
 
   const frotas = useLookup('/frotas');
   const areasGeo = useLookup('/areas-geo');
   const responsaveisGeo = useLookup('/responsaveis-geo');
-  const statusOptions = useLookup('/status-ativo');
 
   const queryParams = {
     ...filters,
     numeroSerie: colFilters.numeroSerie || undefined,
     frotaId: colFilters.frotaId || undefined,
+    responsavelId: colFilters.responsavelId || undefined,
+    modelo: colFilters.modelo || undefined,
     sort,
     page,
     limit: 20,
@@ -66,7 +80,17 @@ export function Radios() {
     }
     const id = searchParams.get('id');
     if (id) {
-      setDrawerId(Number(id));
+      setInfoId(Number(id));
+      setSearchParams({}, { replace: true });
+    }
+    const responsavelId = searchParams.get('responsavelId');
+    if (responsavelId) {
+      setColFilters((s) => ({ ...s, responsavelId }));
+      setSearchParams({}, { replace: true });
+    }
+    const modelo = searchParams.get('modelo');
+    if (modelo) {
+      setColFilters((s) => ({ ...s, modelo }));
       setSearchParams({}, { replace: true });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -89,11 +113,13 @@ export function Radios() {
   });
 
   function toggleSort(key) {
+    if (!key) return;
     setPage(1);
     setSort((prev) => (prev === key ? `-${key}` : prev === `-${key}` ? key : key));
   }
 
   function sortArrow(key) {
+    if (!key) return '';
     if (sort === key) return '↑';
     if (sort === `-${key}`) return '↓';
     return '';
@@ -104,6 +130,7 @@ export function Radios() {
     setForm({
       numeroSerie: r.numeroSerie, modelo: r.modelo || '',
       idDigital: r.idDigital || '', idAnalogico: r.idAnalogico || '',
+      tipo: r.tipo || '', codigo: r.codigo || '', colaboradorResponsavel: r.colaboradorResponsavel || '',
       frotaId: r.frota?.id || '',
       areaId: r.area?.id || '', responsavelId: r.responsavel?.id || '',
       status: r.status, dataAquisicao: r.dataAquisicao?.slice(0, 10) || '', observacoes: r.observacoes || '',
@@ -135,29 +162,80 @@ export function Radios() {
     }
   }
 
+  async function handleCondenar() {
+    const r = confirmCondenar;
+    setConfirmCondenar(null);
+    try {
+      await api.put(`/radios/${r.id}`, { status: 'Baixado' });
+      toast(`${r.numeroSerie} marcado como condenado (Baixado).`);
+      reload();
+    } catch (err) {
+      toast(err.message, 'error');
+    }
+  }
+
+  async function handleDelete() {
+    const r = confirmDelete;
+    setConfirmDelete(null);
+    try {
+      await api.delete(`/radios/${r.id}`);
+      toast('Rádio excluído.');
+      reload();
+    } catch (err) {
+      toast(err.message, 'error');
+    }
+  }
+
   const hasFilters = Object.values(filters).some(Boolean) || Object.values(colFilters).some(Boolean);
 
   return (
     <div>
       <FiltersBar filters={filters} onChange={(f) => { setFilters(f); setPage(1); }} showSetor={false} />
 
+      {colFilters.responsavelId && (
+        <div className="flex items-center gap-8 mb-16">
+          <span className="text-secondary" style={{ fontSize: 13 }}>
+            Filtrando por responsável: <strong>{responsaveisGeo.find((r) => String(r.id) === String(colFilters.responsavelId))?.nome || '—'}</strong>
+          </span>
+          <button className="btn btn-ghost btn-sm" onClick={() => setColFilters((s) => ({ ...s, responsavelId: '' }))}>
+            <Icon name="x" size={13} /> Limpar
+          </button>
+        </div>
+      )}
+
+      {colFilters.modelo && (
+        <div className="flex items-center gap-8 mb-16">
+          <span className="text-secondary" style={{ fontSize: 13 }}>
+            Filtrando por modelo: <strong>{colFilters.modelo}</strong>
+          </span>
+          <button className="btn btn-ghost btn-sm" onClick={() => setColFilters((s) => ({ ...s, modelo: '' }))}>
+            <Icon name="x" size={13} /> Limpar
+          </button>
+        </div>
+      )}
+
       <div className="table-wrap">
         <table className="data-table">
           <thead>
             <tr>
               {COLUMNS.map((c) => (
-                <th key={c.key} onClick={() => toggleSort(c.key)}>
+                <th key={c.label} onClick={() => toggleSort(c.key)} style={c.key ? undefined : { cursor: 'default' }}>
                   {c.label}
                   <span className="sort-arrow">{sortArrow(c.key)}</span>
                 </th>
               ))}
+              <th style={{ width: 150 }}>Ações</th>
             </tr>
             <tr className="filter-row">
-              <th><input className="input" placeholder="Filtrar nº série…" value={colFilters.numeroSerie} onChange={(e) => { setColFilters((s) => ({ ...s, numeroSerie: e.target.value })); setPage(1); }} /></th>
+              <th><input className="input" placeholder="Filtrar serial…" value={colFilters.numeroSerie} onChange={(e) => { setColFilters((s) => ({ ...s, numeroSerie: e.target.value })); setPage(1); }} /></th>
+              <th />
+              <th />
+              <th />
+              <th />
               <th />
               <th>
                 <select className="input" value={colFilters.frotaId} onChange={(e) => { setColFilters((s) => ({ ...s, frotaId: e.target.value })); setPage(1); }}>
-                  <option value="">Todas</option>
+                  <option value="">Todas frotas</option>
                   {frotas.map((f) => <option key={f.id} value={f.id}>{f.numero} · {f.nome}</option>)}
                 </select>
               </th>
@@ -166,13 +244,35 @@ export function Radios() {
           </thead>
           <tbody>
             {radios.map((r) => (
-              <tr key={r.id} onClick={() => setDrawerId(r.id)}>
+              <tr key={r.id}>
                 <td className="mono" style={{ color: 'var(--accent)' }}>{r.numeroSerie}</td>
+                <td className="mono">{radioId(r)}</td>
+                <td>{formatDate(r.dataAquisicao)}</td>
+                <td>{radioTipoLabel(r.tipo)}</td>
                 <td>{r.modelo || '—'}</td>
-                <td className="text-secondary">{r.frota ? `${r.frota.numero} · ${r.frota.nome}` : '—'}</td>
+                <td>{r.colaboradorResponsavel || '—'}</td>
                 <td className="text-secondary">{r.area?.nome || '—'}</td>
                 <td>{r.responsavel?.nome || '—'}</td>
-                <td><StatusBadge status={r.status} /></td>
+                <td><StatusBadge status={r.status} label={radioStatusLabel(r.status)} /></td>
+                <td>
+                  <div className="flex gap-8">
+                    <button className="btn btn-sm" title="Informações do Rádio" onClick={() => setInfoId(r.id)}>
+                      <Icon name="info" size={14} />
+                    </button>
+                    <button className="btn btn-sm" title="Ver Histórico de Reparo" onClick={() => setHistoricoId(r.id)}>
+                      <Icon name="history" size={14} />
+                    </button>
+                    <button className="btn btn-sm" title="Editar Rádio" onClick={() => openEdit(r)}>
+                      <Icon name="edit" size={14} />
+                    </button>
+                    <button className="btn btn-sm btn-danger" title="Condenar Rádio" onClick={() => setConfirmCondenar(r)}>
+                      <Icon name="xCircle" size={14} />
+                    </button>
+                    <button className="btn btn-sm btn-danger" title="Excluir" onClick={() => setConfirmDelete(r)}>
+                      <Icon name="trash" size={14} />
+                    </button>
+                  </div>
+                </td>
               </tr>
             ))}
           </tbody>
@@ -182,7 +282,7 @@ export function Radios() {
             <div className="icon">📻</div>
             <p>Nenhum rádio encontrado{hasFilters ? ' para os filtros aplicados' : ''}.</p>
             {hasFilters && (
-              <button className="btn btn-sm" onClick={() => { setFilters({}); setColFilters({ numeroSerie: '', frotaId: '' }); }}>
+              <button className="btn btn-sm" onClick={() => { setFilters({}); setColFilters({ numeroSerie: '', frotaId: '', responsavelId: '', modelo: '' }); }}>
                 Limpar filtros
               </button>
             )}
@@ -204,14 +304,8 @@ export function Radios() {
         </div>
       )}
 
-      {drawerId && (
-        <RadioDrawer
-          id={drawerId}
-          onClose={() => setDrawerId(null)}
-          onEdit={(r) => { setDrawerId(null); openEdit(r); }}
-          onDeleted={() => { setDrawerId(null); reload(); }}
-        />
-      )}
+      {infoId && <RadioInfoDrawer id={infoId} onClose={() => setInfoId(null)} />}
+      {historicoId && <RadioHistoricoDrawer id={historicoId} onClose={() => setHistoricoId(null)} />}
 
       {showForm && (
         <Modal title={editingId ? 'Editar rádio' : 'Novo rádio'} onClose={() => setShowForm(false)}>
@@ -222,8 +316,24 @@ export function Radios() {
                 <input className="input" required value={form.numeroSerie} onChange={(e) => setForm((f) => ({ ...f, numeroSerie: e.target.value }))} />
               </div>
               <div className="field">
+                <label>Tipo</label>
+                <select className="input" value={form.tipo} onChange={(e) => setForm((f) => ({ ...f, tipo: e.target.value }))}>
+                  <option value="">—</option>
+                  <option value="Movel">Móvel</option>
+                  <option value="Portatil">Portátil</option>
+                </select>
+              </div>
+              <div className="field">
                 <label>Modelo</label>
                 <input className="input" value={form.modelo} onChange={(e) => setForm((f) => ({ ...f, modelo: e.target.value }))} />
+              </div>
+              <div className="field">
+                <label>Código (ID do rádio)</label>
+                <input className="input" placeholder="Ex.: m3108" value={form.codigo} onChange={(e) => setForm((f) => ({ ...f, codigo: e.target.value }))} />
+              </div>
+              <div className="field">
+                <label>Colaborador Responsável</label>
+                <input className="input" value={form.colaboradorResponsavel} onChange={(e) => setForm((f) => ({ ...f, colaboradorResponsavel: e.target.value }))} />
               </div>
               <div className="field">
                 <label>ID Digital</label>
@@ -247,7 +357,7 @@ export function Radios() {
                 <select className="input" value={form.areaId} onChange={(e) => setForm((f) => ({ ...f, areaId: e.target.value }))}>
                   <option value="">—</option>
                   {areasGeo.filter((a) => a.ativo || String(a.id) === String(form.areaId)).map((a) => (
-                    <option key={a.id} value={a.id}>{a.nome}{!a.ativo ? ' (inativa)' : ''}</option>
+                    <option key={a.id} value={a.id}>{a.sigla ? `${a.sigla} · ` : ''}{a.nome}{!a.ativo ? ' (inativa)' : ''}</option>
                   ))}
                 </select>
               </div>
@@ -263,9 +373,10 @@ export function Radios() {
               <div className="field">
                 <label>Status</label>
                 <select className="input" value={form.status} onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))}>
-                  {statusOptions.filter((s) => s.ativo || s.nome === form.status).map((s) => (
-                    <option key={s.id} value={s.nome}>{s.nome === 'Manutencao' ? 'Manutenção' : s.nome}</option>
-                  ))}
+                  <option value="Ativo">Em Campo</option>
+                  <option value="Manutencao">Manutenção</option>
+                  <option value="Estoque">Estoque</option>
+                  <option value="Baixado">Baixado</option>
                 </select>
               </div>
               <div className="field">
@@ -284,14 +395,34 @@ export function Radios() {
           </form>
         </Modal>
       )}
+
+      {confirmCondenar && (
+        <ConfirmDialog
+          title="Condenar rádio"
+          message={`Marcar o rádio ${confirmCondenar.numeroSerie} como condenado (Baixado)? Ele deixa de ser considerado utilizável.`}
+          confirmLabel="Condenar"
+          danger
+          onConfirm={handleCondenar}
+          onCancel={() => setConfirmCondenar(null)}
+        />
+      )}
+
+      {confirmDelete && (
+        <ConfirmDialog
+          title="Excluir rádio"
+          message={`Excluir o rádio ${confirmDelete.numeroSerie}? Essa ação não pode ser desfeita.`}
+          confirmLabel="Excluir"
+          danger
+          onConfirm={handleDelete}
+          onCancel={() => setConfirmDelete(null)}
+        />
+      )}
     </div>
   );
 }
 
-function RadioDrawer({ id, onClose, onEdit, onDeleted }) {
-  const { toast } = useToast();
+function RadioInfoDrawer({ id, onClose }) {
   const { data: radio, loading } = useFetch(`/radios/${id}`, {}, [id]);
-  const [deleting, setDeleting] = useState(false);
 
   if (loading || !radio) {
     return (
@@ -301,30 +432,24 @@ function RadioDrawer({ id, onClose, onEdit, onDeleted }) {
     );
   }
 
-  async function handleDelete() {
-    if (!window.confirm(`Excluir o rádio ${radio.numeroSerie}? Essa ação não pode ser desfeita.`)) return;
-    setDeleting(true);
-    try {
-      await api.delete(`/radios/${radio.id}`);
-      toast('Rádio excluído.');
-      onDeleted();
-    } catch (err) {
-      toast(err.message, 'error');
-    } finally {
-      setDeleting(false);
-    }
-  }
-
   return (
     <Drawer
       title={radio.numeroSerie}
-      subtitle={<StatusBadge status={radio.status} />}
+      subtitle={<StatusBadge status={radio.status} label={radioStatusLabel(radio.status)} />}
       onClose={onClose}
     >
       <div className="detail-grid">
         <div className="detail-field">
           <div className="label-caps">Nº de série</div>
           <div className="value mono">{radio.numeroSerie}</div>
+        </div>
+        <div className="detail-field">
+          <div className="label-caps">ID</div>
+          <div className="value mono">{radioId(radio)}</div>
+        </div>
+        <div className="detail-field">
+          <div className="label-caps">Tipo</div>
+          <div className="value">{radioTipoLabel(radio.tipo)}</div>
         </div>
         <div className="detail-field">
           <div className="label-caps">Modelo</div>
@@ -347,6 +472,10 @@ function RadioDrawer({ id, onClose, onEdit, onDeleted }) {
           <div className="value">{radio.area?.nome || '—'}</div>
         </div>
         <div className="detail-field">
+          <div className="label-caps">Colaborador Responsável</div>
+          <div className="value">{radio.colaboradorResponsavel || '—'}</div>
+        </div>
+        <div className="detail-field">
           <div className="label-caps">Responsável</div>
           <div className="value">{radio.responsavel?.nome || '—'}</div>
         </div>
@@ -355,15 +484,29 @@ function RadioDrawer({ id, onClose, onEdit, onDeleted }) {
           <div className="value">{formatDate(radio.dataAquisicao)}</div>
         </div>
       </div>
+      {radio.observacoes && (
+        <div className="detail-field" style={{ marginTop: 4 }}>
+          <div className="label-caps">Observações</div>
+          <div className="value">{radio.observacoes}</div>
+        </div>
+      )}
+    </Drawer>
+  );
+}
 
-      <div className="flex gap-8 mb-16">
-        <button className="btn btn-sm" onClick={() => onEdit(radio)}>Editar rádio</button>
-        <button className="btn btn-sm btn-danger" onClick={handleDelete} disabled={deleting}>
-          {deleting ? 'Excluindo…' : 'Excluir rádio'}
-        </button>
-      </div>
+function RadioHistoricoDrawer({ id, onClose }) {
+  const { data: radio, loading } = useFetch(`/radios/${id}`, {}, [id]);
 
-      <div className="section-title">Histórico de manutenções</div>
+  if (loading || !radio) {
+    return (
+      <Drawer title="Carregando…" onClose={onClose}>
+        <div className="center-py"><div className="spinner" /></div>
+      </Drawer>
+    );
+  }
+
+  return (
+    <Drawer title={`Histórico de reparo · ${radio.numeroSerie}`} onClose={onClose}>
       {(!radio.manutencoes || radio.manutencoes.length === 0) && (
         <div className="empty-state" style={{ padding: '24px 0' }}>
           <p>Nenhuma manutenção registrada para este rádio.</p>

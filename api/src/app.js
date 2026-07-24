@@ -32,6 +32,8 @@ import insumosRoutes from './routes/insumos.routes.js';
 import transportadorasRoutes from './routes/transportadoras.routes.js';
 import fornecedoresGeoRoutes from './routes/fornecedoresGeo.routes.js';
 import ocorrenciasRoutes from './routes/ocorrencias.routes.js';
+import colaboradoresRoutes from './routes/colaboradores.routes.js';
+import modelosRadioRoutes from './routes/modelosRadio.routes.js';
 
 export function createApp() {
   const app = express();
@@ -78,6 +80,8 @@ export function createApp() {
   v1.use('/transportadoras', transportadorasRoutes);
   v1.use('/fornecedores-geo', fornecedoresGeoRoutes);
   v1.use('/ocorrencias', ocorrenciasRoutes);
+  v1.use('/colaboradores', colaboradoresRoutes);
+  v1.use('/modelos-radio', modelosRadioRoutes);
   app.use('/api/v1', v1);
 
   app.use(notFoundHandler);

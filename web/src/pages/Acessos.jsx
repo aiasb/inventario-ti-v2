@@ -26,6 +26,7 @@ const MODULOS = [
   { key: 'responsaveisGeo', label: 'Responsáveis (Geo)' },
   { key: 'cadastrosGeo', label: 'Cadastros (Geo)' },
   { key: 'ocorrencias', label: 'Ocorrências (Geo)' },
+  { key: 'colaboradores', label: 'Colaboradores (Geo)' },
 ];
 
 const ACOES = [

@@ -1,6 +1,7 @@
 import { api, qs } from '../api/client';
 import {
   AreaGeo,
+  Colaborador,
   Empresa,
   Equipamento,
   Fornecedor,
@@ -9,6 +10,7 @@ import {
   Insumo,
   ManutencaoRadio,
   Manutencao,
+  ModeloRadio,
   Ocorrencia,
   Perfil,
   Radio,
@@ -16,11 +18,13 @@ import {
   ResponsavelGeo,
   Setor,
   StatusAtivo,
+  StatusEquipamento,
   StatusManutencao,
   StatusOcorrencia,
   Termo,
   TermoModelo,
   TipoEquipamento,
+  TipoRadio,
   Transportadora,
   UsuarioAdmin,
 } from '../types/models';
@@ -74,10 +78,13 @@ export interface NovoRadioInput {
   modelo?: string | null;
   idDigital?: string | null;
   idAnalogico?: string | null;
+  tipo?: TipoRadio | null;
+  colaboradorResponsavel?: string | null;
+  codigo?: string | null;
   frotaId?: number | null;
   areaId?: number | null;
   responsavelId?: number | null;
-  status: 'Ativo' | 'Estoque';
+  status: StatusEquipamento;
   dataAquisicao?: string | null;
   observacoes?: string | null;
 }
@@ -98,6 +105,9 @@ function radioBody(input: NovoRadioInput) {
     modelo: input.modelo ? input.modelo.trim() : null,
     idDigital: input.idDigital ? input.idDigital.trim() : null,
     idAnalogico: input.idAnalogico ? input.idAnalogico.trim() : null,
+    tipo: input.tipo || null,
+    colaboradorResponsavel: input.colaboradorResponsavel ? input.colaboradorResponsavel.trim() : null,
+    codigo: input.codigo ? input.codigo.trim() : null,
     frotaId: input.frotaId || null,
     areaId: input.areaId || null,
     responsavelId: input.responsavelId || null,
@@ -455,11 +465,11 @@ class RemoteRepository {
     return res.data;
   }
 
-  async createAreaGeo(input: { nome: string }): Promise<AreaGeo> {
+  async createAreaGeo(input: { nome: string; sigla?: string | null }): Promise<AreaGeo> {
     return api.post<AreaGeo>('/areas-geo', input);
   }
 
-  async updateAreaGeo(id: number, input: Partial<{ nome: string; ativo: boolean }>): Promise<AreaGeo> {
+  async updateAreaGeo(id: number, input: Partial<{ nome: string; sigla: string | null; ativo: boolean }>): Promise<AreaGeo> {
     return api.put<AreaGeo>(`/areas-geo/${id}`, input);
   }
 
@@ -476,16 +486,77 @@ class RemoteRepository {
     return res.data;
   }
 
-  async createResponsavelGeo(input: { nome: string; matricula?: string | null; cpf?: string | null; areaId?: number | null }): Promise<ResponsavelGeo> {
+  async createResponsavelGeo(input: {
+    nome: string;
+    matricula?: string | null;
+    cpf?: string | null;
+    funcao?: string | null;
+    departamento?: string | null;
+    setor?: string | null;
+    legenda?: string | null;
+    areaId?: number | null;
+    ativo?: boolean;
+  }): Promise<ResponsavelGeo> {
     return api.post<ResponsavelGeo>('/responsaveis-geo', input);
   }
 
-  async updateResponsavelGeo(id: number, input: Partial<{ nome: string; matricula: string | null; cpf: string | null; areaId: number | null; ativo: boolean }>): Promise<ResponsavelGeo> {
+  async updateResponsavelGeo(
+    id: number,
+    input: Partial<{
+      nome: string;
+      matricula: string | null;
+      cpf: string | null;
+      funcao: string | null;
+      departamento: string | null;
+      setor: string | null;
+      legenda: string | null;
+      areaId: number | null;
+      ativo: boolean;
+    }>
+  ): Promise<ResponsavelGeo> {
     return api.put<ResponsavelGeo>(`/responsaveis-geo/${id}`, input);
   }
 
   async deleteResponsavelGeo(id: number): Promise<void> {
     await api.delete(`/responsaveis-geo/${id}`);
+  }
+
+  // ---- Geotecnologia: Modelos de rádio ------------------------------------------
+
+  async listModelosRadio(somenteAtivos = true): Promise<ModeloRadio[]> {
+    const res = await api.get<Paginated<ModeloRadio>>(
+      `/modelos-radio${qs({ limit: 200, ativo: somenteAtivos || undefined })}`
+    );
+    return res.data;
+  }
+
+  async createModeloRadio(input: {
+    codigoChb?: string | null;
+    nome: string;
+    serial?: string | null;
+    tipo?: string | null;
+    valor?: number | string | null;
+    ativo?: boolean;
+  }): Promise<ModeloRadio> {
+    return api.post<ModeloRadio>('/modelos-radio', input);
+  }
+
+  async updateModeloRadio(
+    id: number,
+    input: Partial<{
+      codigoChb: string | null;
+      nome: string;
+      serial: string | null;
+      tipo: string | null;
+      valor: number | string | null;
+      ativo: boolean;
+    }>
+  ): Promise<ModeloRadio> {
+    return api.put<ModeloRadio>(`/modelos-radio/${id}`, input);
+  }
+
+  async deleteModeloRadio(id: number): Promise<void> {
+    await api.delete(`/modelos-radio/${id}`);
   }
 
   // ---- Geotecnologia: Transportadoras -------------------------------------------
@@ -562,8 +633,31 @@ class RemoteRepository {
     return api.patch<Ocorrencia>(`/ocorrencias/${id}/status`, { status });
   }
 
+  async updateOcorrenciaItemStatus(ocorrenciaId: number, itemId: number, status: StatusEquipamento): Promise<Ocorrencia> {
+    return api.patch<Ocorrencia>(`/ocorrencias/${ocorrenciaId}/itens/${itemId}/status`, { status });
+  }
+
   async deleteOcorrencia(id: number): Promise<void> {
     await api.delete(`/ocorrencias/${id}`);
+  }
+
+  // ---- Geotecnologia: Colaboradores -----------------------------------------------
+
+  async listColaboradores(somenteAtivos = true): Promise<Colaborador[]> {
+    const res = await api.get<Paginated<Colaborador>>(`/colaboradores${qs({ limit: 300, ativo: somenteAtivos || undefined })}`);
+    return res.data;
+  }
+
+  async createColaborador(input: { matricula?: string | null; nome: string; funcao?: string | null; departamento?: string | null; ativo?: boolean }): Promise<Colaborador> {
+    return api.post<Colaborador>('/colaboradores', input);
+  }
+
+  async updateColaborador(id: number, input: Partial<{ matricula: string | null; nome: string; funcao: string | null; departamento: string | null; ativo: boolean }>): Promise<Colaborador> {
+    return api.put<Colaborador>(`/colaboradores/${id}`, input);
+  }
+
+  async deleteColaborador(id: number): Promise<void> {
+    await api.delete(`/colaboradores/${id}`);
   }
 }
 

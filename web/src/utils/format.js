@@ -50,6 +50,22 @@ export function formatAge(years) {
   return `${years.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} anos`;
 }
 
+// Status "Ativo" de rádios (Geotecnologia) é exibido como "Em Campo" — o
+// valor gravado no banco continua "Ativo" (mesma automação de Ocorrências),
+// só o rótulo muda, e só nas telas de rádio (não afeta o Inventário de TI,
+// que compartilha o mesmo cadastro de status).
+export function radioStatusLabel(status) {
+  if (status === 'Ativo') return 'Em Campo';
+  if (status === 'Manutencao') return 'Manutenção';
+  return status || '—';
+}
+
+export function radioTipoLabel(tipo) {
+  if (tipo === 'Movel') return 'Móvel';
+  if (tipo === 'Portatil') return 'Portátil';
+  return '—';
+}
+
 export function initials(name) {
   if (!name) return '—';
   const parts = name.trim().split(/\s+/);

@@ -5,7 +5,7 @@ import { fonts } from '../theme/typography';
 import { radius } from '../theme/spacing';
 import { StatusEquipamento, statusLabel } from '../types/models';
 
-export function StatusBadge({ status, size = 'md' }: { status: StatusEquipamento; size?: 'sm' | 'md' }) {
+export function StatusBadge({ status, size = 'md', label }: { status: StatusEquipamento; size?: 'sm' | 'md'; label?: string }) {
   const color = statusColor(status);
   const small = size === 'sm';
   return (
@@ -17,7 +17,7 @@ export function StatusBadge({ status, size = 'md' }: { status: StatusEquipamento
       ]}
     >
       <View style={[styles.dot, { backgroundColor: color }]} />
-      <Text style={[styles.text, { color }, small && styles.textSm]}>{statusLabel(status)}</Text>
+      <Text style={[styles.text, { color }, small && styles.textSm]}>{label || statusLabel(status)}</Text>
     </View>
   );
 }

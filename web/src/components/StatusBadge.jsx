@@ -8,7 +8,7 @@ const STATUS_MAP = {
   Concluida: { className: 'badge-concluida', label: 'Concluída' },
 };
 
-export function StatusBadge({ status }) {
+export function StatusBadge({ status, label }) {
   const cfg = STATUS_MAP[status] || { className: 'badge-estoque', label: status || '—' };
-  return <span className={`badge ${cfg.className}`}>{cfg.label}</span>;
+  return <span className={`badge ${cfg.className}`}>{label || cfg.label}</span>;
 }

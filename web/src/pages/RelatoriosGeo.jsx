@@ -5,7 +5,7 @@ import { api, qs } from '../api/client.js';
 import { StatusBadge } from '../components/StatusBadge.jsx';
 import { Icon } from '../components/Icons.jsx';
 import { useToast } from '../context/ToastContext.jsx';
-import { formatDate } from '../utils/format.js';
+import { formatDate, radioStatusLabel } from '../utils/format.js';
 
 function emptyFiltros() {
   return { frotaId: '', id: '', serial: '', dataInicio: '', dataFim: '' };
@@ -110,7 +110,7 @@ export function RelatoriosGeo() {
     const rows = radios.map((r) => [
       r.numeroSerie, r.modelo || '', r.idDigital || '', r.idAnalogico || '',
       r.frota ? `${r.frota.numero} - ${r.frota.nome}` : '', r.area?.nome || '', r.responsavel?.nome || '',
-      r.status, formatDate(r.dataAquisicao),
+      radioStatusLabel(r.status), formatDate(r.dataAquisicao),
     ]);
     downloadCsv('relatorio-radios.csv', header, rows);
     toast('CSV exportado com sucesso.');
@@ -190,7 +190,7 @@ export function RelatoriosGeo() {
                       <td>{r.frota ? `${r.frota.numero} · ${r.frota.nome}` : '—'}</td>
                       <td>{r.area?.nome || '—'}</td>
                       <td>{r.responsavel?.nome || '—'}</td>
-                      <td><StatusBadge status={r.status} /></td>
+                      <td><StatusBadge status={r.status} label={radioStatusLabel(r.status)} /></td>
                       <td>{formatDate(r.dataAquisicao)}</td>
                     </tr>
                   ))}

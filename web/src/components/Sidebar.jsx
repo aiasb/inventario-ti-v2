@@ -28,10 +28,10 @@ const NAV_GROUPS = [
     items: [
       { to: '/radios', label: 'Rádios', icon: 'inventory', modulo: 'radios' },
       { to: '/manutencoes-radios', label: 'Manutenções', icon: 'wrench', modulo: 'manutencoesRadios' },
-      { to: '/responsaveis-geo', label: 'Responsáveis', icon: 'person', modulo: 'responsaveisGeo' },
-      { to: '/cadastros-geo', label: 'Cadastros', icon: 'grid', modulo: 'cadastrosGeo' },
+      { to: '/cadastros-geo', label: 'Cadastros', icon: 'grid', modulo: ['cadastrosGeo', 'responsaveisGeo'] },
       { to: '/relatorios-geo', label: 'Relatórios', icon: 'doc', modulo: ['radios', 'manutencoesRadios'] },
       { to: '/ocorrencias', label: 'Ocorrências', icon: 'list', modulo: 'ocorrencias' },
+      { to: '/colaboradores', label: 'Colaboradores', icon: 'users', modulo: 'colaboradores' },
     ],
   },
   {

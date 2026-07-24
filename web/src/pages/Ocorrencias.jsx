@@ -16,12 +16,11 @@ const STATUS_LABELS = {
   Finalizado: 'Finalizado',
   Recusado: 'Recusado/Condenado',
 };
-const STATUS_CLASS = {
-  'Em Aberto': 'badge-manutencao',
-  Enviado: 'badge-andamento',
-  'Em Analise': 'badge-estoque',
-  Finalizado: 'badge-ativo',
-  Recusado: 'badge-baixado',
+const RADIO_STATUS_LABELS = {
+  Ativo: 'Em Campo',
+  Manutencao: 'Manutenção',
+  Estoque: 'Estoque',
+  Baixado: 'Baixado',
 };
 
 function isLocked(status) {
@@ -29,7 +28,7 @@ function isLocked(status) {
 }
 
 function emptyItem() {
-  return { radioId: '', numeroOs: '', solicitante: '' };
+  return { itemId: null, radioId: '', numeroOs: '', solicitante: '', radioStatus: null };
 }
 
 function emptyForm() {
@@ -93,7 +92,9 @@ export function Ocorrencias() {
     setForm({
       transportadoraId: o.transportadora?.id || '', fornecedorId: o.fornecedor?.id || '',
       notaFiscal: o.notaFiscal || '', data: o.data?.slice(0, 10) || '', observacoes: o.observacoes || '',
-      itens: o.itens.length ? o.itens.map((i) => ({ radioId: i.radioId, numeroOs: i.numeroOs || '', solicitante: i.solicitante || '' })) : [emptyItem()],
+      itens: o.itens.length
+        ? o.itens.map((i) => ({ itemId: i.id, radioId: i.radioId, numeroOs: i.numeroOs || '', solicitante: i.solicitante || '', radioStatus: i.radioStatus }))
+        : [emptyItem()],
     });
     setShowForm(true);
   }
@@ -137,6 +138,18 @@ export function Ocorrencias() {
     try {
       await api.patch(`/ocorrencias/${o.id}/status`, { status });
       toast(`Status alterado para "${STATUS_LABELS[status]}".`);
+      reload();
+    } catch (err) {
+      toast(err.message, 'error');
+    }
+  }
+
+  async function handleItemStatusChange(itemId, status) {
+    try {
+      const updated = await api.patch(`/ocorrencias/${editing.id}/itens/${itemId}/status`, { status });
+      toast(`Status do rádio atualizado para "${RADIO_STATUS_LABELS[status]}".`);
+      setEditing(updated);
+      setForm((f) => ({ ...f, itens: f.itens.map((it) => (it.itemId === itemId ? { ...it, radioStatus: status } : it)) }));
       reload();
     } catch (err) {
       toast(err.message, 'error');
@@ -240,7 +253,7 @@ export function Ocorrencias() {
         <Modal
           title={editing ? `Ocorrência ${editing.numero}${locked ? ' (somente leitura)' : ''}` : 'Nova Ocorrência'}
           onClose={() => setShowForm(false)}
-          width={640}
+          width={720}
         >
           <form onSubmit={handleSave}>
             <div className="form-grid">
@@ -278,9 +291,9 @@ export function Ocorrencias() {
 
             <div className="section-title" style={{ marginTop: 16 }}>Ativos vinculados</div>
             {form.itens.map((item, idx) => (
-              <div key={idx} style={{ display: 'flex', gap: 8, alignItems: 'flex-end', marginBottom: 8 }}>
-                <div className="field" style={{ flex: 2, marginBottom: 0 }}>
-                  {idx === 0 && <label>Rádio *</label>}
+              <div key={idx} style={{ border: '1px solid var(--border-soft)', borderRadius: 10, padding: 12, marginBottom: 10 }}>
+                <div className="field full" style={{ marginBottom: 8 }}>
+                  <label>Rádio *</label>
                   <select className="input" disabled={locked} value={item.radioId} onChange={(e) => updateItem(idx, 'radioId', e.target.value)}>
                     <option value="">Selecione o rádio</option>
                     {radios.map((r) => (
@@ -288,19 +301,31 @@ export function Ocorrencias() {
                     ))}
                   </select>
                 </div>
-                <div className="field" style={{ flex: 1, marginBottom: 0 }}>
-                  {idx === 0 && <label>Nº OS/Solicitação</label>}
-                  <input className="input" disabled={locked} value={item.numeroOs} onChange={(e) => updateItem(idx, 'numeroOs', e.target.value)} />
+                <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
+                  <div className="field" style={{ flex: 1, marginBottom: 0 }}>
+                    <label>Nº OS/Solicitação</label>
+                    <input className="input" disabled={locked} value={item.numeroOs} onChange={(e) => updateItem(idx, 'numeroOs', e.target.value)} />
+                  </div>
+                  <div className="field" style={{ flex: 1, marginBottom: 0 }}>
+                    <label>Solicitante</label>
+                    <input className="input" disabled={locked} value={item.solicitante} onChange={(e) => updateItem(idx, 'solicitante', e.target.value)} />
+                  </div>
+                  {item.itemId && (
+                    <div className="field" style={{ flex: 1, marginBottom: 0 }}>
+                      <label>Status do rádio</label>
+                      <select className="input" value={item.radioStatus} onChange={(e) => handleItemStatusChange(item.itemId, e.target.value)}>
+                        {Object.entries(RADIO_STATUS_LABELS).map(([value, label]) => (
+                          <option key={value} value={value}>{label}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                  {!locked && form.itens.length > 1 && (
+                    <button type="button" className="btn btn-sm btn-danger" onClick={() => removeItem(idx)}>
+                      <Icon name="trash" size={13} />
+                    </button>
+                  )}
                 </div>
-                <div className="field" style={{ flex: 1, marginBottom: 0 }}>
-                  {idx === 0 && <label>Solicitante</label>}
-                  <input className="input" disabled={locked} value={item.solicitante} onChange={(e) => updateItem(idx, 'solicitante', e.target.value)} />
-                </div>
-                {!locked && form.itens.length > 1 && (
-                  <button type="button" className="btn btn-sm btn-danger" onClick={() => removeItem(idx)}>
-                    <Icon name="trash" size={13} />
-                  </button>
-                )}
               </div>
             ))}
             {!locked && (

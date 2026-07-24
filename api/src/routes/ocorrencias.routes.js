@@ -8,10 +8,14 @@ import { requireAuth, requirePermission, requireEmpresa } from '../middleware/au
 const router = Router();
 
 const STATUS_VALUES = ['Em Aberto', 'Enviado', 'Em Analise', 'Finalizado', 'Recusado'];
+const RADIO_STATUS_VALUES = ['Ativo', 'Manutencao', 'Estoque', 'Baixado'];
 
 // Ocorrências Finalizadas ou Recusadas/Condenadas viram somente leitura —
 // a exclusão continua disponível (ver DELETE), mas edição de campos/itens
-// e mudança de status ficam bloqueadas a partir daqui.
+// e mudança de status ficam bloqueadas a partir daqui. O status do(s)
+// rádio(s) em si é individual por item (ver PATCH /:id/itens/:itemId/status)
+// e não é derivado do status da ocorrência — uma mesma ocorrência pode ter
+// um rádio que voltou consertado e outro que foi condenado.
 function isLocked(status) {
   return status === 'Finalizado' || status === 'Recusado';
 }
@@ -26,6 +30,7 @@ const BASE_SELECT = `
               'radioId', oi.radio_id,
               'numeroSerie', r.numero_serie,
               'modelo', r.modelo,
+              'radioStatus', r.status,
               'numeroOs', oi.numero_os,
               'solicitante', oi.solicitante
             ) ORDER BY oi.id)
@@ -64,6 +69,22 @@ async function nextNumero() {
   const last = rows[0]?.numero;
   const n = last ? parseInt(last.replace('OC-', ''), 10) + 1 : 1;
   return `OC-${String(n).padStart(4, '0')}`;
+}
+
+// Envia o(s) rádio(s) para manutenção assim que entram numa ocorrência —
+// independente do status da ocorrência (mesmo "Em Aberto" já retira o rádio
+// de uso normal, pois fisicamente ele já está sendo preparado para envio).
+async function marcarRadiosEmManutencao(client, radioIds) {
+  if (radioIds.length === 0) return;
+  await client.query(`UPDATE radios SET status = 'Manutencao' WHERE id = ANY($1::int[])`, [radioIds]);
+}
+
+// Só devolve para "Ativo" quem ainda está com status "Manutencao" — um rádio
+// já marcado individualmente como Baixado (condenado) ou Ativo por outra via
+// não deve ser sobrescrito.
+async function devolverRadiosAtivos(client, radioIds) {
+  if (radioIds.length === 0) return;
+  await client.query(`UPDATE radios SET status = 'Ativo' WHERE id = ANY($1::int[]) AND status = 'Manutencao'`, [radioIds]);
 }
 
 router.get(
@@ -159,6 +180,7 @@ router.post(
           [ocorrenciaId, item.radioId, item.numeroOs || null, item.solicitante || null]
         );
       }
+      await marcarRadiosEmManutencao(client, itens.map((i) => i.radioId));
       await client.query('COMMIT');
 
       const { rows: created } = await query(`${BASE_SELECT} WHERE o.id = $1`, [ocorrenciaId]);
@@ -208,6 +230,15 @@ router.put(
         await client.query(`UPDATE ocorrencias SET ${sets.join(', ')} WHERE id = $${params.length}`, params);
       }
       if (Array.isArray(itens)) {
+        const { rows: antigos } = await client.query(
+          `SELECT radio_id FROM ocorrencia_itens WHERE ocorrencia_id = $1`,
+          [req.params.id]
+        );
+        const radioIdsAntigos = antigos.map((r) => r.radio_id);
+        const radioIdsNovos = itens.map((i) => i.radioId);
+        const removidos = radioIdsAntigos.filter((id) => !radioIdsNovos.includes(id));
+        const adicionados = radioIdsNovos.filter((id) => !radioIdsAntigos.includes(id));
+
         await client.query(`DELETE FROM ocorrencia_itens WHERE ocorrencia_id = $1`, [req.params.id]);
         for (const item of itens) {
           await client.query(
@@ -215,6 +246,8 @@ router.put(
             [req.params.id, item.radioId, item.numeroOs || null, item.solicitante || null]
           );
         }
+        await marcarRadiosEmManutencao(client, adicionados);
+        await devolverRadiosAtivos(client, removidos);
       }
       await client.query('COMMIT');
     } catch (err) {
@@ -244,9 +277,59 @@ router.patch(
       throw forbidden('Ocorrência finalizada ou recusada/condenada não pode ser editada.');
     }
 
-    await query(`UPDATE ocorrencias SET status = $1 WHERE id = $2`, [status, req.params.id]);
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query(`UPDATE ocorrencias SET status = $1 WHERE id = $2`, [status, req.params.id]);
+      // "Finalizado" = os itens voltaram — devolve para Ativo quem ainda
+      // estiver em Manutenção (rádios já condenados individualmente via
+      // PATCH /:id/itens/:itemId/status não são afetados). "Recusado" não
+      // mexe no status dos rádios: cada item pode ter um desfecho diferente,
+      // então isso é decidido item a item, não pela ocorrência como um todo.
+      if (status === 'Finalizado') {
+        const { rows: itensRows } = await client.query(
+          `SELECT radio_id FROM ocorrencia_itens WHERE ocorrencia_id = $1`,
+          [req.params.id]
+        );
+        await devolverRadiosAtivos(client, itensRows.map((r) => r.radio_id));
+      }
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+
     const { rows } = await query(`${BASE_SELECT} WHERE o.id = $1`, [req.params.id]);
     res.json(mapRow(rows[0]));
+  })
+);
+
+// Ajusta o status do rádio de um item específico (Ativo, Manutenção, Estoque
+// ou Baixado/condenado) — independente do status geral da ocorrência, já que
+// cada rádio de uma mesma ocorrência pode ter um desfecho diferente (ex.: um
+// volta consertado, outro é condenado). Funciona mesmo com a ocorrência
+// travada (Finalizado/Recusado), pois é uma correção sobre o próprio rádio.
+router.patch(
+  '/:id/itens/:itemId/status',
+  requireAuth,
+  requireEmpresa('geotecnologia'),
+  requirePermission('ocorrencias', 'editar'),
+  asyncHandler(async (req, res) => {
+    const { status } = req.body;
+    if (!RADIO_STATUS_VALUES.includes(status)) throw badRequest('Status de rádio inválido.');
+
+    const { rows } = await query(
+      `SELECT radio_id FROM ocorrencia_itens WHERE id = $1 AND ocorrencia_id = $2`,
+      [req.params.itemId, req.params.id]
+    );
+    if (!rows[0]) throw notFound('Item da ocorrência');
+
+    await query(`UPDATE radios SET status = $1 WHERE id = $2`, [status, rows[0].radio_id]);
+
+    const { rows: ocorrenciaRows } = await query(`${BASE_SELECT} WHERE o.id = $1`, [req.params.id]);
+    res.json(mapRow(ocorrenciaRows[0]));
   })
 );
 
@@ -256,8 +339,30 @@ router.delete(
   requireEmpresa('geotecnologia'),
   requirePermission('ocorrencias', 'excluir'),
   asyncHandler(async (req, res) => {
-    const result = await query(`UPDATE ocorrencias SET deleted_at = now() WHERE id = $1 AND deleted_at IS NULL`, [req.params.id]);
-    if (result.rowCount === 0) throw notFound('Ocorrência');
+    const existing = await query(`SELECT status FROM ocorrencias WHERE id = $1 AND deleted_at IS NULL`, [req.params.id]);
+    if (!existing.rows[0]) throw notFound('Ocorrência');
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      // Se a ocorrência ainda estava em andamento (não finalizada/recusada),
+      // remover o registro não deve deixar o rádio preso em "Manutenção"
+      // sem nenhuma ocorrência que explique isso.
+      if (!isLocked(existing.rows[0].status)) {
+        const { rows: itensRows } = await client.query(
+          `SELECT radio_id FROM ocorrencia_itens WHERE ocorrencia_id = $1`,
+          [req.params.id]
+        );
+        await devolverRadiosAtivos(client, itensRows.map((r) => r.radio_id));
+      }
+      await client.query(`UPDATE ocorrencias SET deleted_at = now() WHERE id = $1`, [req.params.id]);
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
     res.status(204).send();
   })
 );

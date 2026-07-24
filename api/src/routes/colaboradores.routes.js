@@ -1,9 +1,9 @@
 import { simpleCrudRouter } from './simpleCrud.js';
 
 export default simpleCrudRouter({
-  table: 'areas_geo',
-  columns: ['nome', 'sigla'],
+  table: 'colaboradores',
+  columns: ['matricula', 'nome', 'funcao', 'departamento'],
   snakeToCamel: {},
-  modulo: 'cadastrosGeo',
+  modulo: 'colaboradores',
   empresa: 'geotecnologia',
 });

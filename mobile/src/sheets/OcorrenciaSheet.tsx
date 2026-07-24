@@ -10,16 +10,20 @@ import { fonts } from '../theme/typography';
 import { radius, spacing, touchTarget } from '../theme/spacing';
 import { useToast } from '../context/ToastContext';
 import { repository } from '../data/repository';
-import { Ocorrencia, ocorrenciaLocked, Radio, Transportadora, FornecedorGeo } from '../types/models';
+import { Ocorrencia, ocorrenciaLocked, Radio, radioStatusLabel, StatusEquipamento, Transportadora, FornecedorGeo } from '../types/models';
+
+const RADIO_STATUS_VALUES: StatusEquipamento[] = ['Ativo', 'Manutencao', 'Estoque', 'Baixado'];
 
 interface ItemForm {
+  itemId: number | null;
   radio: Radio | null;
   numeroOs: string;
   solicitante: string;
+  radioStatus: StatusEquipamento | null;
 }
 
 function emptyItem(): ItemForm {
-  return { radio: null, numeroOs: '', solicitante: '' };
+  return { itemId: null, radio: null, numeroOs: '', solicitante: '', radioStatus: null };
 }
 
 export function OcorrenciaSheet({
@@ -61,9 +65,11 @@ export function OcorrenciaSheet({
       setItens(
         ocorrencia.itens.length
           ? ocorrencia.itens.map((i) => ({
+              itemId: i.id,
               radio: radios.find((r) => r.id === i.radioId) || null,
               numeroOs: i.numeroOs || '',
               solicitante: i.solicitante || '',
+              radioStatus: i.radioStatus,
             }))
           : [emptyItem()]
       );
@@ -84,6 +90,20 @@ export function OcorrenciaSheet({
   }
   function removeItem(idx: number) {
     setItens((prev) => prev.filter((_, i) => i !== idx));
+  }
+
+  async function handleItemStatusChange(itemId: number, label: string) {
+    if (!ocorrencia) return;
+    const value = RADIO_STATUS_VALUES.find((v) => radioStatusLabel(v) === label);
+    if (!value) return;
+    try {
+      await repository.updateOcorrenciaItemStatus(ocorrencia.id, itemId, value);
+      showToast(`Status do rádio atualizado para "${radioStatusLabel(value)}".`);
+      setItens((prev) => prev.map((it) => (it.itemId === itemId ? { ...it, radioStatus: value } : it)));
+      onSaved();
+    } catch (err: any) {
+      showToast(err?.message || 'Não foi possível atualizar o status do rádio.');
+    }
   }
 
   async function handleSave() {
@@ -135,9 +155,12 @@ export function OcorrenciaSheet({
           <FormField label="Nota Fiscal" value={notaFiscal} onChangeText={setNotaFiscal} />
           <FormField label="Observações" value={observacoes} onChangeText={setObservacoes} multiline numberOfLines={3} />
 
-          <Text style={styles.sectionTitle}>Ativos vinculados</Text>
-          {itens.map((item, idx) => (
-            <View key={idx} style={styles.itemBox}>
+        </View>
+
+        <Text style={styles.sectionTitle}>Ativos vinculados</Text>
+        {itens.map((item, idx) => (
+          <View key={idx} style={styles.itemBox}>
+            <View pointerEvents={locked ? 'none' : 'auto'} style={locked ? { opacity: 0.55 } : undefined}>
               <RadioPickerField label="Rádio" required value={item.radio} radios={radios} onChange={(r) => updateItem(idx, { radio: r })} />
               <FormField label="Nº OS/Solicitação" value={item.numeroOs} onChangeText={(v) => updateItem(idx, { numeroOs: v })} />
               <FormField label="Solicitante" value={item.solicitante} onChangeText={(v) => updateItem(idx, { solicitante: v })} />
@@ -148,12 +171,22 @@ export function OcorrenciaSheet({
                 </Pressable>
               )}
             </View>
-          ))}
+            {item.itemId && item.radioStatus && (
+              <SelectField
+                label="Status do rádio"
+                value={radioStatusLabel(item.radioStatus)}
+                options={RADIO_STATUS_VALUES.map(radioStatusLabel)}
+                onChange={(label) => handleItemStatusChange(item.itemId!, label)}
+              />
+            )}
+          </View>
+        ))}
+        {!locked && (
           <Pressable style={styles.addItemBtn} onPress={addItem}>
             <Feather name="plus" size={14} color={colors.accent} />
             <Text style={styles.addItemText}>Adicionar item</Text>
           </Pressable>
-        </View>
+        )}
       </ScrollView>
 
       <View style={styles.actions}>

@@ -9,10 +9,14 @@ import { radius, spacing, touchTarget } from '../theme/spacing';
 import { useAppData } from '../context/AppDataContext';
 import { useSheet } from '../context/SheetContext';
 import { useToast } from '../context/ToastContext';
+import { TipoRadio } from '../types/models';
 
 const SEM_RESPONSAVEL = 'Nenhum (fica em estoque)';
 const SEM_FROTA = 'Sem frota';
 const SEM_AREA = 'Sem área';
+const SEM_TIPO = 'Não informado';
+const TIPO_LABELS: Record<TipoRadio, string> = { Movel: 'Móvel', Portatil: 'Portátil' };
+const TIPO_OPTIONS = [SEM_TIPO, TIPO_LABELS.Movel, TIPO_LABELS.Portatil];
 
 function toDateInput(iso: string | null | undefined): string {
   if (!iso) return '';
@@ -31,6 +35,9 @@ function emptyState() {
     modelo: '',
     idDigital: '',
     idAnalogico: '',
+    tipoNome: SEM_TIPO,
+    codigo: '',
+    colaboradorResponsavel: '',
     frotaNome: SEM_FROTA,
     areaNome: SEM_AREA,
     responsavelNome: SEM_RESPONSAVEL,
@@ -61,6 +68,9 @@ export function RadioSheet() {
         modelo: editing.modelo || '',
         idDigital: editing.idDigital || '',
         idAnalogico: editing.idAnalogico || '',
+        tipoNome: editing.tipo ? TIPO_LABELS[editing.tipo] : SEM_TIPO,
+        codigo: editing.codigo || '',
+        colaboradorResponsavel: editing.colaboradorResponsavel || '',
         frotaNome: editing.frota ? `${editing.frota.numero} · ${editing.frota.nome}` : SEM_FROTA,
         areaNome: editing.area?.nome || SEM_AREA,
         responsavelNome: editing.responsavel?.nome || SEM_RESPONSAVEL,
@@ -96,11 +106,16 @@ export function RadioSheet() {
 
     setSaving(true);
     try {
+      const tipo = (Object.entries(TIPO_LABELS).find(([, label]) => label === form.tipoNome)?.[0] as TipoRadio | undefined) || null;
+
       const input = {
         numeroSerie: form.numeroSerie,
         modelo: form.modelo || null,
         idDigital: form.idDigital || null,
         idAnalogico: form.idAnalogico || null,
+        tipo,
+        codigo: form.codigo || null,
+        colaboradorResponsavel: form.colaboradorResponsavel || null,
         frotaId: frota?.id || null,
         areaId: area?.id || null,
         responsavelId: responsavel?.id || null,
@@ -141,6 +156,16 @@ export function RadioSheet() {
           </View>
           <View style={styles.col}>
             <FormField label="ID Analógico" value={form.idAnalogico} onChangeText={(v) => set('idAnalogico', v)} />
+          </View>
+        </View>
+
+        <SelectField label="Tipo" value={form.tipoNome} options={TIPO_OPTIONS} onChange={(v) => set('tipoNome', v)} />
+        <View style={styles.row2}>
+          <View style={styles.col}>
+            <FormField label="Código (ID do rádio)" placeholder="Ex.: m3108" value={form.codigo} onChangeText={(v) => set('codigo', v)} />
+          </View>
+          <View style={styles.col}>
+            <FormField label="Colaborador Responsável" value={form.colaboradorResponsavel} onChangeText={(v) => set('colaboradorResponsavel', v)} />
           </View>
         </View>
 

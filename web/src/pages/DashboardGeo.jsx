@@ -4,7 +4,7 @@ import { useFetch } from '../hooks/useApi.js';
 import { Sparkline } from '../components/Sparkline.jsx';
 import { StatusBadge } from '../components/StatusBadge.jsx';
 import { ColumnChart } from '../components/ColumnChart.jsx';
-import { formatDateTime } from '../utils/format.js';
+import { formatDateTime, radioStatusLabel } from '../utils/format.js';
 
 const VIEW_TABS = ['Visão geral', 'Por frota', 'Por área', 'Por status'];
 const MONTH_LABELS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
@@ -97,10 +97,7 @@ export function DashboardGeo() {
 
   const porFrota = useMemo(() => groupCount(radios, (r) => (r.frota ? `${r.frota.numero} · ${r.frota.nome}` : null)), [radios]);
   const porArea = useMemo(() => groupCount(radios, (r) => r.area?.nome), [radios]);
-  const porStatus = useMemo(
-    () => groupCount(radios, (r) => (r.status === 'Manutencao' ? 'Manutenção' : r.status)),
-    [radios]
-  );
+  const porStatus = useMemo(() => groupCount(radios, (r) => radioStatusLabel(r.status)), [radios]);
 
   const manutencoesPorMes = useMemo(() => {
     const now = new Date();

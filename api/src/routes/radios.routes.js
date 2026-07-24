@@ -11,9 +11,10 @@ const router = Router();
 
 const BASE_SELECT = `
   SELECT r.id, r.numero_serie, r.modelo, r.status, r.id_digital, r.id_analogico,
+         r.tipo, r.colaborador_responsavel, r.codigo,
          r.data_aquisicao, r.observacoes, r.created_at, r.updated_at,
          f.id AS frota_id, f.numero AS frota_numero, f.nome AS frota_nome,
-         a.id AS area_id, a.nome AS area_nome,
+         a.id AS area_id, a.nome AS area_nome, a.sigla AS area_sigla,
          resp.id AS responsavel_id, resp.nome AS responsavel_nome
   FROM radios r
   LEFT JOIN frotas f ON f.id = r.frota_id
@@ -29,10 +30,13 @@ function mapRow(r) {
     status: r.status,
     idDigital: r.id_digital,
     idAnalogico: r.id_analogico,
+    tipo: r.tipo,
+    colaboradorResponsavel: r.colaborador_responsavel,
+    codigo: r.codigo,
     dataAquisicao: r.data_aquisicao,
     observacoes: r.observacoes,
     frota: r.frota_id ? { id: r.frota_id, numero: r.frota_numero, nome: r.frota_nome } : null,
-    area: r.area_id ? { id: r.area_id, nome: r.area_nome } : null,
+    area: r.area_id ? { id: r.area_id, nome: r.area_nome, sigla: r.area_sigla } : null,
     responsavel: r.responsavel_id ? { id: r.responsavel_id, nome: r.responsavel_nome } : null,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
@@ -51,7 +55,7 @@ const SORT_COLUMNS = {
 };
 
 function buildRadiosFilters(qs) {
-  const { status, frotaId, areaId, responsavelId, q, numeroSerie, id, dataInicio, dataFim } = qs;
+  const { status, frotaId, areaId, responsavelId, q, numeroSerie, modelo, id, dataInicio, dataFim } = qs;
   const conditions = ['r.deleted_at IS NULL'];
   const params = [];
 
@@ -74,6 +78,10 @@ function buildRadiosFilters(qs) {
   if (numeroSerie) {
     params.push(`%${numeroSerie}%`);
     conditions.push(`r.numero_serie ILIKE $${params.length}`);
+  }
+  if (modelo) {
+    params.push(`%${modelo}%`);
+    conditions.push(`r.modelo ILIKE $${params.length}`);
   }
   if (id) {
     params.push(`%${id}%`);
@@ -142,15 +150,15 @@ router.get(
       title: 'Relatório de Rádios',
       subtitle: `Gerado em ${new Date().toLocaleString('pt-BR')} · ${data.length} registro(s)`,
       columns: [
-        { label: 'Nº Série', value: (r) => r.numeroSerie, weight: 1.2 },
-        { label: 'Modelo', value: (r) => r.modelo, weight: 1.3 },
-        { label: 'ID Digital', value: (r) => r.idDigital, weight: 1 },
-        { label: 'ID Analógico', value: (r) => r.idAnalogico, weight: 1 },
-        { label: 'Frota', value: (r) => (r.frota ? `${r.frota.numero} · ${r.frota.nome}` : ''), weight: 1.3 },
-        { label: 'Área', value: (r) => r.area?.nome, weight: 1.1 },
-        { label: 'Responsável', value: (r) => r.responsavel?.nome, weight: 1.2 },
-        { label: 'Status', value: (r) => r.status, weight: 0.9 },
-        { label: 'Aquisição', value: (r) => formatDateBR(r.dataAquisicao), weight: 0.9 },
+        { label: 'Nº Série', value: (r) => r.numeroSerie, weight: 1.1 },
+        { label: 'ID', value: (r) => `${r.area?.sigla || ''}${r.codigo || ''}` || null, weight: 0.9 },
+        { label: 'Tipo', value: (r) => (r.tipo === 'Movel' ? 'Móvel' : r.tipo === 'Portatil' ? 'Portátil' : ''), weight: 0.8 },
+        { label: 'Modelo', value: (r) => r.modelo, weight: 1.1 },
+        { label: 'Colaborador Responsável', value: (r) => r.colaboradorResponsavel, weight: 1.2 },
+        { label: 'Área', value: (r) => r.area?.nome, weight: 1 },
+        { label: 'Responsável', value: (r) => r.responsavel?.nome, weight: 1.1 },
+        { label: 'Status', value: (r) => (r.status === 'Ativo' ? 'Em Campo' : r.status), weight: 0.8 },
+        { label: 'Aquisição', value: (r) => formatDateBR(r.dataAquisicao), weight: 0.8 },
       ],
       rows: data,
     });
@@ -230,16 +238,17 @@ router.post(
     validateRadioBody(req.body);
     const {
       numeroSerie, modelo, frotaId, areaId, responsavelId, status, dataAquisicao, observacoes,
-      idDigital, idAnalogico,
+      idDigital, idAnalogico, tipo, colaboradorResponsavel, codigo,
     } = req.body;
 
     const { rows } = await query(
       `INSERT INTO radios
-        (numero_serie, modelo, frota_id, area_id, responsavel_id, status, data_aquisicao, observacoes, id_digital, id_analogico)
-       VALUES ($1,$2,$3,$4,$5,COALESCE($6,'Ativo'),$7,$8,$9,$10)
+        (numero_serie, modelo, frota_id, area_id, responsavel_id, status, data_aquisicao, observacoes, id_digital, id_analogico, tipo, colaborador_responsavel, codigo)
+       VALUES ($1,$2,$3,$4,$5,COALESCE($6,'Ativo'),$7,$8,$9,$10,$11,$12,$13)
        RETURNING id`,
       [numeroSerie, modelo || null, frotaId || null, areaId || null, responsavelId || null,
-       status || null, dataAquisicao || null, observacoes || null, idDigital || null, idAnalogico || null]
+       status || null, dataAquisicao || null, observacoes || null, idDigital || null, idAnalogico || null,
+       tipo || null, colaboradorResponsavel || null, codigo || null]
     );
 
     const { rows: created } = await query(`${BASE_SELECT} WHERE r.id = $1`, [rows[0].id]);
@@ -262,6 +271,7 @@ router.put(
       numeroSerie: 'numero_serie', modelo: 'modelo', frotaId: 'frota_id', areaId: 'area_id',
       responsavelId: 'responsavel_id', status: 'status', dataAquisicao: 'data_aquisicao',
       observacoes: 'observacoes', idDigital: 'id_digital', idAnalogico: 'id_analogico',
+      tipo: 'tipo', colaboradorResponsavel: 'colaborador_responsavel', codigo: 'codigo',
     };
 
     const sets = [];

@@ -11,7 +11,7 @@ import { spacing } from '../theme/spacing';
 import { useAppData } from '../context/AppDataContext';
 import { useAuth } from '../context/AuthContext';
 import { useSheet } from '../context/SheetContext';
-import { Radio } from '../types/models';
+import { Radio, radioIdExibicao, radioStatusLabel, radioTipoLabel } from '../types/models';
 import { RootStackParamList } from '../navigation/types';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -76,9 +76,9 @@ export function RadiosScreen() {
         renderItem={({ item }) => (
           <Pressable style={styles.row} onPress={() => navigation.navigate('DetalheRadio', { id: item.id })}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.rowTitle}>{item.numeroSerie}</Text>
+              <Text style={styles.rowTitle}>{item.numeroSerie} · {radioIdExibicao(item)}</Text>
               <Text style={styles.rowSubtitle} numberOfLines={1}>
-                {item.modelo || 'sem modelo'} · {item.frota ? `${item.frota.numero} · ${item.frota.nome}` : 'sem frota'}
+                {radioTipoLabel(item.tipo)} · {item.modelo || 'sem modelo'} · {item.frota ? `${item.frota.numero} · ${item.frota.nome}` : 'sem frota'}
               </Text>
               <Text style={styles.rowSubtitle} numberOfLines={1}>
                 {item.area?.nome || 'sem área'} · {item.responsavel?.nome || 'sem responsável'}
@@ -89,7 +89,7 @@ export function RadiosScreen() {
                 <Feather name="cloud-off" size={11} color={colors.statusManutencao} />
               </View>
             ) : (
-              <StatusBadge status={item.status} />
+              <StatusBadge status={item.status} label={radioStatusLabel(item.status)} />
             )}
             {podeEditar('radios') && (
               <Pressable style={styles.iconBtn} onPress={() => openEdit(item)}>

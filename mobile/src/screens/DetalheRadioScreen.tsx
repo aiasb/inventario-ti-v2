@@ -15,7 +15,7 @@ import { useToast } from '../context/ToastContext';
 import { formatDate } from '../utils/format';
 import { RootStackParamList } from '../navigation/types';
 import { NovaOsRadioSheet } from '../sheets/NovaOsRadioSheet';
-import { ManutencaoRadio, statusManutencaoLabel } from '../types/models';
+import { ManutencaoRadio, radioIdExibicao, radioStatusLabel, radioTipoLabel, statusManutencaoLabel } from '../types/models';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 type DetalheRoute = RouteProp<RootStackParamList, 'DetalheRadio'>;
@@ -24,12 +24,13 @@ export function DetalheRadioScreen() {
   const navigation = useNavigation<Nav>();
   const route = useRoute<DetalheRoute>();
   const insets = useSafeAreaInsets();
-  const { getRadio, getManutencoesRadioDe, excluirRadio } = useAppData();
+  const { getRadio, getManutencoesRadioDe, editarRadio, excluirRadio } = useAppData();
   const { podeCriar, podeEditar, podeExcluir } = useAuth();
   const { openEditarRadio } = useSheet();
   const { showToast } = useToast();
   const [osSheetVisible, setOsSheetVisible] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [condenando, setCondenando] = useState(false);
 
   const radio = getRadio(route.params.id);
 
@@ -68,16 +69,58 @@ export function DetalheRadioScreen() {
     );
   }
 
+  function handleCondenar() {
+    Alert.alert(
+      'Condenar rádio',
+      `Marcar ${radio!.numeroSerie} como condenado (Baixado)? Ele deixa de ser considerado utilizável.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Condenar',
+          style: 'destructive',
+          onPress: async () => {
+            setCondenando(true);
+            try {
+              await editarRadio(radio!.id, {
+                numeroSerie: radio!.numeroSerie,
+                modelo: radio!.modelo,
+                idDigital: radio!.idDigital,
+                idAnalogico: radio!.idAnalogico,
+                tipo: radio!.tipo,
+                codigo: radio!.codigo,
+                colaboradorResponsavel: radio!.colaboradorResponsavel,
+                frotaId: radio!.frota?.id || null,
+                areaId: radio!.area?.id || null,
+                responsavelId: radio!.responsavel?.id || null,
+                status: 'Baixado',
+                dataAquisicao: radio!.dataAquisicao,
+                observacoes: radio!.observacoes,
+              });
+              showToast(`${radio!.numeroSerie} marcado como condenado.`);
+            } catch (err: any) {
+              showToast(err?.message || 'Não foi possível condenar o rádio.');
+            } finally {
+              setCondenando(false);
+            }
+          },
+        },
+      ]
+    );
+  }
+
   const fields: { label: string; value: string }[] = [
     { label: 'Nº de série', value: radio.numeroSerie },
+    { label: 'ID', value: radioIdExibicao(radio) },
+    { label: 'Tipo', value: radioTipoLabel(radio.tipo) },
     { label: 'Modelo', value: radio.modelo || '—' },
     { label: 'ID Digital', value: radio.idDigital || '—' },
     { label: 'ID Analógico', value: radio.idAnalogico || '—' },
     { label: 'Frota', value: radio.frota ? `${radio.frota.numero} · ${radio.frota.nome}` : '—' },
     { label: 'Área', value: radio.area?.nome || '—' },
+    { label: 'Colaborador Responsável', value: radio.colaboradorResponsavel || '—' },
     { label: 'Responsável', value: radio.responsavel?.nome || '—' },
     { label: 'Aquisição', value: formatDate(radio.dataAquisicao) },
-    { label: 'Status', value: radio.status === 'Manutencao' ? 'Manutenção' : radio.status },
+    { label: 'Status', value: radioStatusLabel(radio.status) },
   ];
 
   return (
@@ -97,12 +140,17 @@ export function DetalheRadioScreen() {
               <Text style={[styles.pendingBadgeText, { color: colors.statusManutencao }]}>Pendente de sincronização</Text>
             </View>
           ) : (
-            <StatusBadge status={radio.status} />
+            <StatusBadge status={radio.status} label={radioStatusLabel(radio.status)} />
           )}
         </View>
         {podeEditar('radios') && (
           <Pressable style={styles.editBtn} onPress={() => openEditarRadio(radio)}>
             <Feather name="edit-2" size={16} color={colors.text} />
+          </Pressable>
+        )}
+        {podeEditar('radios') && (
+          <Pressable style={styles.editBtn} onPress={handleCondenar} disabled={condenando}>
+            <Feather name="x-circle" size={16} color={colors.danger} />
           </Pressable>
         )}
         {podeExcluir('radios') && (
