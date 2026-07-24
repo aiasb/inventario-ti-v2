@@ -10,6 +10,18 @@ const SAVED_SENHA_KEY = 'iti_saved_senha';
 
 const DEFAULT_API_URL = (Constants.expoConfig?.extra?.apiUrl as string) || 'http://localhost:8080/api/v1';
 
+// Sem isso, o fetch nativo espera o timeout de conexão TCP do SO (pode passar
+// de 1 minuto num celular fora da rede do servidor) antes de cair no catch e
+// liberar o modo offline — com o AbortController isso acontece em poucos
+// segundos.
+const REQUEST_TIMEOUT_MS = 8000;
+
+function fetchWithTimeout(url: string, init: RequestInit): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  return fetch(url, { ...init, signal: controller.signal }).finally(() => clearTimeout(timer));
+}
+
 let apiBaseUrl = DEFAULT_API_URL;
 let accessToken: string | null = null;
 let refreshToken: string | null = null;
@@ -108,7 +120,7 @@ export function setUnauthorizedHandler(fn: (() => void) | null): void {
 async function doRefresh(): Promise<{ accessToken: string; refreshToken?: string }> {
   if (!refreshToken) throw new Error('sem refresh token');
   if (!refreshPromise) {
-    refreshPromise = fetch(`${apiBaseUrl}/auth/refresh`, {
+    refreshPromise = fetchWithTimeout(`${apiBaseUrl}/auth/refresh`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ refreshToken }),
@@ -142,7 +154,7 @@ async function request<T = unknown>(path: string, options: RequestOptions = {}):
 
   let res: Response;
   try {
-    res = await fetch(`${apiBaseUrl}${path}`, {
+    res = await fetchWithTimeout(`${apiBaseUrl}${path}`, {
       method,
       headers,
       body: body === undefined ? undefined : isForm ? (body as BodyInit) : JSON.stringify(body),
